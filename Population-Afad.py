@@ -1,6 +1,8 @@
 import pandas as pd
 import re
 import openpyxl  # Resolves hidden zeros and text formats in Excel
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Mute unnecessary Pandas warnings
 pd.options.mode.chained_assignment = None
@@ -108,7 +110,7 @@ temiz_nufus['NUFUS'] = temiz_nufus['NUFUS'].astype(int)
 
 son_nufus = temiz_nufus[['ILCE', 'MAHALLE', 'NUFUS']]
 son_nufus['ILCE'] = son_nufus['ILCE'].apply(fix_turkish_letters)
-son_nufus['MAHALLE'] = son_nufus['MAHALLE'].apply(fix_turkish_letters)
+son_nufus['MAHALLE'] = son_nufus['MAHALLE'].apply(fix_turkish_letters).str.replace(' ', '')
 
 print("\n--- 2. CLEANED POPULATION DATA (FIRST 15 ROWS) ---")
 print(son_nufus.head(15))
@@ -124,3 +126,101 @@ print("\n--- 2. NEIGHBORHOOD POPULATION STATS ---")
 nufus_stats = son_nufus[['NUFUS']].agg(['min', 'max', 'mean', 'median'])
 print(nufus_stats.round(2))
 
+# MERGING & PER CAPITA CALCULATION
+mahalle_afad = temiz_veri.groupby(['ILCE', 'MAHALLE'])[['ALAN_M2', 'KAPASITE']].sum().reset_index()
+
+birlesik_veri = pd.merge(son_nufus, mahalle_afad, on=['ILCE', 'MAHALLE'], how='inner')
+
+birlesik_veri['KISI_BASI_M2'] = (birlesik_veri['ALAN_M2'] / birlesik_veri['NUFUS']).round(2)
+
+print(f"\n--- MERGE SUCCESSFUL: {len(birlesik_veri)} Neighborhoods Matched! ---")
+
+
+# Terminal Control for whole data
+istatistik = birlesik_veri.groupby('ILCE')['KISI_BASI_M2'].agg(
+    Mahalle_Sayisi='count',
+    Min_M2='min',
+    Medyan_M2='median',
+    Ortalama_M2='mean',
+    Max_M2='max'
+).round(2)
+
+istatistik = istatistik.sort_values(by='Ortalama_M2', ascending=True)
+
+pd.set_option('display.max_rows', None)
+print("\n" + "="*60)
+print("--- PER CAPITA SQUARE METER STATISTICS BY DISTRICT (ALL DATA) ---")
+print("="*60)
+print(istatistik)
+
+
+# Boxplot
+sns.set_theme(style="whitegrid")
+plt.figure(figsize=(16, 8))
+
+ax = sns.boxplot(
+    data=birlesik_veri,
+    x='ILCE',
+    y='KISI_BASI_M2',
+    hue='ILCE',
+    palette='viridis',
+    legend=False
+)
+
+plt.xticks(rotation=45, ha='right', fontsize=10)
+plt.yticks(fontsize=10)
+
+plt.ticklabel_format(style='plain', axis='y')
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
+
+plt.title('Distribution of Assembly Area Per Capita by District in İzmir (Including All Outliers)', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Area Per Person (m²)', fontsize=12, fontweight='bold')
+plt.tight_layout()
+
+plt.savefig("1_boxplot_full_data.png", dpi=300)
+plt.close()
+
+print("\n[SUCCESS] Boxplot (with all data) saved as '1_boxplot_full_data.png'!")
+
+# Special control for Selcuk and Torbalı because one of them is too low while other is too high
+ozel_ilceler = ['SELCUK', 'TORBALI']
+ozel_tablo = birlesik_veri[birlesik_veri['ILCE'].isin(ozel_ilceler)].sort_values(by=['ILCE', 'KISI_BASI_M2'])
+
+print("\n" + "="*60)
+print("--- NEIGHBORHOOD LEVEL ASSEMBLY AREA PER CAPITA: SELCUK VS TORBALI ---")
+print("="*60)
+# We only write the columns we want to see
+print(ozel_tablo[['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2']].to_string(index=False))
+
+# Bar for Selcuk and Torbalı to see their neighborhoods speicifcally
+# Only Selcuk's and Torbalı's data
+karsilastirma_verisi = birlesik_veri[birlesik_veri['ILCE'].isin(['SELCUK', 'TORBALI'])]
+
+plt.figure(figsize=(14, 8))
+sns.set_theme(style="whitegrid")
+
+# We are creating barplot. Y means their neighborhoods, X means their represantative m^2
+ax = sns.barplot(
+    data=karsilastirma_verisi.sort_values('KISI_BASI_M2', ascending=False),
+    y='MAHALLE',
+    x='KISI_BASI_M2',
+    hue='ILCE',
+    palette='Set2' # Renk paleti
+)
+
+
+plt.title('Neighborhood Level Assembly Area Per Capita: Selçuk vs Torbalı', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('Area Per Person (m²)', fontsize=12, fontweight='bold')
+plt.ylabel('Neighborhoods', fontsize=12, fontweight='bold')
+
+
+plt.xscale('log')
+plt.text(0.5, 0.95, '',
+         transform=ax.transAxes, fontsize=10, color='red', fontstyle='italic')
+
+plt.tight_layout()
+plt.savefig("2_bar_selcuk_torbali.png", dpi=300)
+plt.close()
+
+print("\n[SUCCESS] Bar Chart for Selçuk & Torbalı saved as '2_bar_selcuk_torbali.png'!")
