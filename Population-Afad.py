@@ -206,7 +206,7 @@ ax = sns.barplot(
     y='MAHALLE',
     x='KISI_BASI_M2',
     hue='ILCE',
-    palette='Set2' # Renk paleti
+    palette='Set2'
 )
 
 
@@ -224,3 +224,37 @@ plt.savefig("2_bar_selcuk_torbali.png", dpi=300)
 plt.close()
 
 print("\n[SUCCESS] Bar Chart for Selçuk & Torbalı saved as '2_bar_selcuk_torbali.png'!")
+
+def scale_y(val):
+    return val if val <= 100 else 100 + (val - 100) * 0.15
+
+birlesik_veri['KISI_BASI_M2_PLOT'] = birlesik_veri['KISI_BASI_M2'].apply(scale_y)
+
+plt.figure(figsize=(12, 8))
+ax = sns.regplot(
+    data=birlesik_veri, x='NUFUS', y='KISI_BASI_M2_PLOT',
+    scatter_kws={'alpha': 0.7, 'color': '#2B5B84', 's': 50, 'edgecolor': 'w'},
+    line_kws={'color': '#D9534F', 'linewidth': 2}
+)
+
+plt.ticklabel_format(style='plain', axis='x')
+plt.gca().xaxis.set_major_formatter(plt.matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
+
+max_val = int(birlesik_veri['KISI_BASI_M2'].max())
+tick_vals = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 350, 400]
+tick_vals = [v for v in tick_vals if v < max_val]
+tick_vals.append(max_val)
+
+plt.yticks([scale_y(v) for v in tick_vals], [str(v) for v in tick_vals])
+
+plt.axhline(100, color='gray', linestyle='--', linewidth=1.5)
+plt.text(x=birlesik_veri['NUFUS'].max()*0.5, y=102, s="Scale Compressed Above 100 m²", color='gray', ha='center', fontstyle='italic', fontsize=10)
+
+plt.title('Correlation Between Population and Area Per Person (m²)', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('Neighborhood Population', fontsize=12, fontweight='bold')
+plt.ylabel('Area Per Person (m²)', fontsize=12, fontweight='bold')
+
+plt.tight_layout()
+plt.savefig("3_scatter.png", dpi=300)
+plt.close()
+print(f"[SUCCESS] Scatter plot saved as '3_scatter.png' (Max Value Plotted: {max_val})")
