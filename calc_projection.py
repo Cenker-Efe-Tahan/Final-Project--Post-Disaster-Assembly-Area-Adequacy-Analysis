@@ -138,13 +138,7 @@ def main() -> None:
     pd.set_option('display.width', 220)
 
     terminal_output = []
-    terminal_output.append('Varsayim: YILLIK_NUFUS_ARTIS_HIZI alani yuzde (%) olarak kabul edildi ve 2025 mahalle nufusu uzerinden 2 yillik bilesik projeksiyon hesaplandi.\n')
-    terminal_output.append(f'Toplam mahalle sayisi: {len(result)}')
-    terminal_output.append(f'Kullanilan en guncel ilce artis yili: {int(result["TARIH"].max())}')
-    terminal_output.append('')
-    terminal_output.append(f'Kaydedilen klasor: {to_ascii_tr(OUTPUT_DIR)}')
-    terminal_output.append(f'CSV dosyasi: {to_ascii_tr(OUTPUT_CSV)}')
-    terminal_output.append(f'Text ciktisi: {to_ascii_tr(OUTPUT_TXT)}')
+
     terminal_output.append('')
     terminal_output.append(result.to_string(index=False))
     text = '\n'.join(terminal_output)

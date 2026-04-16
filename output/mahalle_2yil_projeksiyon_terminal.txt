@@ -1,11 +1,3 @@
-Varsayim: YILLIK_NUFUS_ARTIS_HIZI alani yuzde (%) olarak kabul edildi ve 2025 mahalle nufusu uzerinden 2 yillik bilesik projeksiyon hesaplandi.
-
-Toplam mahalle sayisi: 1299
-Kullanilan en guncel ilce artis yili: 2023
-
-Kaydedilen klasor: D:\498\Final-Project--Post-Disaster-Assembly-Area-Adequacy-Analysis\output
-CSV dosyasi: D:\498\Final-Project--Post-Disaster-Assembly-Area-Adequacy-Analysis\output\mahalle_2yil_projeksiyon.csv
-Text ciktisi: D:\498\Final-Project--Post-Disaster-Assembly-Area-Adequacy-Analysis\output\mahalle_2yil_projeksiyon_terminal.txt
 
        ILCE                                    MAHALLE  MAHALLE_NUFUS_2025  TARIH  YILLIK_NUFUS_ARTIS_HIZI  YILLIK_ARTIS_ORANI  NUFUS_2_YIL_SONRA
      Aliaga                               Ataturk Mah.                9104   2023                    12.70              0.1270              11563
