@@ -31,7 +31,6 @@ def smart_excel_parser(file_path):
         for cell in row:
             val = cell.value
 
-            # Target Area (col 8) and Capacity (col 9) columns
             if cell.column in [8, 9]:
                 # SCENARIO 1: Excel formatted as number but hides zeros (e.g. 24 -> 24000)
                 if isinstance(val, (int, float)):
@@ -40,15 +39,14 @@ def smart_excel_parser(file_path):
 
                 # SCENARIO 2: Manual text entry with multiple dots AND hidden enter keys
                 elif isinstance(val, str):
-                    # İŞTE EKSİK OLAN HAYAT KURTARICI SATIR BURASI:
                     val = val.replace('\n', '').replace('\r', '').replace(' ', '')
 
                     val = val.replace('.', '')  # Remove all thousands separators
-                    val = val.replace(',', '.')  # Convert any comma to decimal point
+                    val = val.replace(',', '.')  # Converting any comma to decimal point
                     try:
-                        val = float(val)  # Convert the clean text into a math number
+                        val = float(val)
                     except ValueError:
-                        pass  # Ignore if it contains weird letters
+                        pass  # Ignore
 
             row_data.append(val)
         data.append(row_data)
@@ -67,9 +65,8 @@ temiz_veri = veri[['SIRA_NO', 'ILCE', 'MAHALLE', 'ALAN_M2', 'KAPASITE']].dropna(
 
 # Apply text standardization
 temiz_veri['ILCE'] = temiz_veri['ILCE'].apply(fix_turkish_letters)
-temiz_veri['MAHALLE'] = temiz_veri['MAHALLE'].apply(fix_turkish_letters)
+temiz_veri['MAHALLE'] = temiz_veri['MAHALLE'].apply(fix_turkish_letters).str.replace(' ', '')
 
-# Ensure numeric types just in case
 temiz_veri['ALAN_M2'] = pd.to_numeric(temiz_veri['ALAN_M2'], errors='coerce')
 temiz_veri['KAPASITE'] = pd.to_numeric(temiz_veri['KAPASITE'], errors='coerce')
 
@@ -80,6 +77,7 @@ temiz_veri['RATIO'] = temiz_veri['ALAN_M2'] / temiz_veri['KAPASITE']
 temiz_veri = temiz_veri[(temiz_veri['RATIO'] >= 3.9) & (temiz_veri['RATIO'] <= 4.1)]
 
 # Remove impossibly small artifact areas (under 100 m2)
+# AFAD does not count them in their dataset.
 temiz_veri = temiz_veri[temiz_veri['ALAN_M2'] >= 100]
 
 print("\n--- 1. CLEANED AFAD DATA (FIRST 15 ROWS) ---")
@@ -258,3 +256,73 @@ plt.tight_layout()
 plt.savefig("3_scatter.png", dpi=300)
 plt.close()
 print(f"[SUCCESS] Scatter plot saved as '3_scatter.png' (Max Value Plotted: {max_val})")
+
+
+# ZOOMED IN SCATTER PLOT (0-30 m²)
+zoomed_veri = birlesik_veri[birlesik_veri['KISI_BASI_M2'] <= 30]
+
+plt.figure(figsize=(12, 8))
+sns.set_theme(style="whitegrid")
+
+ax = sns.regplot(
+    data=zoomed_veri,
+    x='NUFUS',
+    y='KISI_BASI_M2',
+    scatter_kws={'alpha': 0.7, 'color': '#2ca02c', 's': 60, 'edgecolor': 'w'},
+    line_kws={'color': '#d62728', 'linewidth': 2.5}
+)
+
+plt.ticklabel_format(style='plain', axis='x')
+plt.gca().xaxis.set_major_formatter(plt.matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
+
+plt.ylim(0, 30)
+
+plt.title('Zoomed-in View: Population vs Area Per Person (Excluding >30 m² Outliers)', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('Neighborhood Population', fontsize=12, fontweight='bold')
+plt.ylabel('Area Per Person (m²)', fontsize=12, fontweight='bold')
+
+plt.tight_layout()
+
+plt.savefig("4_scatter_zoomed.png", dpi=300)
+plt.close()
+
+print("\n[SUCCESS] Zoomed scatter plot saved as '4_scatter_zoomed.png'!")
+
+# ZOOMED-IN BOXPLOT (0-30 m²)
+
+# Excluding Selcuk and Konak for better visibility of other districts
+plot_veri = birlesik_veri[~birlesik_veri['ILCE'].isin(['SELCUK', 'KONAK'])]
+
+plt.figure(figsize=(16, 8))
+sns.set_theme(style="whitegrid")
+
+ax = sns.boxplot(
+    data=plot_veri,
+    x='ILCE',
+    y='KISI_BASI_M2',
+    hue='ILCE',
+    palette='viridis',
+    legend=False
+)
+
+plt.xticks(rotation=45, ha='right', fontsize=10)
+
+plt.ylim(0, 30)
+
+plt.ticklabel_format(style='plain', axis='y')
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
+
+plt.title('Zoomed Boxplot: Assembly Area Per Capita by District (0-30 m² View)', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Area Per Person (m²)', fontsize=12, fontweight='bold')
+
+# Informing
+plt.text(0.5, 0.95, '* Selçuk and Konak are excluded from this view due to extreme outliers exceeding the frame.',
+         transform=ax.transAxes, fontsize=10, color='red', fontstyle='italic', ha='center')
+
+plt.tight_layout()
+
+plt.savefig("5_boxplot_zoomed.png", dpi=300)
+plt.close()
+
+print("\n[SUCCESS] Zoomed Boxplot (excluding Selçuk & Konak) saved as '5_boxplot_zoomed.png'!")
