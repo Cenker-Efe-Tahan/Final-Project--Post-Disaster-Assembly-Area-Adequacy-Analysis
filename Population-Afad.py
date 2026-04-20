@@ -1,8 +1,9 @@
 import pandas as pd
 import re
-import openpyxl  # Resolves hidden zeros and text formats in Excel
+import openpyxl
 import matplotlib.pyplot as plt
 import seaborn as sns
+from Odemis_Data import process_odemis
 
 # Mute unnecessary Pandas warnings
 pd.options.mode.chained_assignment = None
@@ -132,7 +133,6 @@ birlesik_veri = pd.merge(son_nufus, mahalle_afad, on=['ILCE', 'MAHALLE'], how='i
 birlesik_veri['KISI_BASI_M2'] = (birlesik_veri['ALAN_M2'] / birlesik_veri['NUFUS']).round(2)
 
 print(f"\n--- MERGE SUCCESSFUL: {len(birlesik_veri)} Neighborhoods Matched! ---")
-
 
 # Terminal Control for whole data
 istatistik = birlesik_veri.groupby('ILCE')['KISI_BASI_M2'].agg(
@@ -326,3 +326,101 @@ plt.savefig("5_boxplot_zoomed.png", dpi=300)
 plt.close()
 
 print("\n[SUCCESS] Zoomed Boxplot (excluding Selçuk & Konak) saved as '5_boxplot_zoomed.png'!")
+
+
+# RISK ANALYSIS BAR CHART (< 1.5 m²)
+riskli_mahalleler = birlesik_veri[birlesik_veri['KISI_BASI_M2'] < 1.5]
+
+risk_tablosu = riskli_mahalleler.groupby('ILCE').size().reset_index(name='Riskli_Mahalle_Sayisi')
+
+# Sorting from most dangerous to least.
+risk_tablosu = risk_tablosu.sort_values(by='Riskli_Mahalle_Sayisi', ascending=False)
+
+plt.figure(figsize=(14, 8))
+sns.set_theme(style="whitegrid")
+
+ax = sns.barplot(
+    data=risk_tablosu,
+    x='ILCE',
+    y='Riskli_Mahalle_Sayisi',
+    hue='ILCE',
+    palette='Reds_r',
+    legend=False
+)
+
+for i in ax.containers:
+    ax.bar_label(i, padding=3, fontsize=11, fontweight='bold')
+
+plt.xticks(rotation=45, ha='right', fontsize=10)
+plt.yticks(fontsize=10)
+
+plt.title('Critical Risk Analysis: Number of Neighborhoods with < 1.5 m² Assembly Area Per Person', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Number of High-Risk Neighborhoods', fontsize=12, fontweight='bold')
+
+plt.tight_layout()
+
+plt.savefig("6_bar_risk_analysis.png", dpi=300)
+plt.close()
+
+print("\n[SUCCESS] Risk analysis bar chart saved as '6_bar_risk_analysis.png'!")
+
+
+
+# RISK ANALYSIS BAR CHART (RATIO: < 1.5 m²)
+
+toplam_mahalle = birlesik_veri.groupby('ILCE').size().reset_index(name='Toplam_Mahalle')
+
+# Count the dangeours one as <1.5 m^2
+riskli_mahalleler = birlesik_veri[birlesik_veri['KISI_BASI_M2'] < 1.5]
+riskli_sayi = riskli_mahalleler.groupby('ILCE').size().reset_index(name='Riskli_Mahalle_Sayisi')
+
+risk_tablosu = pd.merge(toplam_mahalle, riskli_sayi, on='ILCE', how='left').fillna(0)
+risk_tablosu['Riskli_Mahalle_Sayisi'] = risk_tablosu['Riskli_Mahalle_Sayisi'].astype(int)
+
+# (Dangerous/ALL)*100
+risk_tablosu['Tehlike_Yuzdesi'] = (risk_tablosu['Riskli_Mahalle_Sayisi'] / risk_tablosu['Toplam_Mahalle']) * 100
+
+risk_tablosu['Etiket'] = risk_tablosu['Riskli_Mahalle_Sayisi'].astype(str) + " / " + risk_tablosu[
+    'Toplam_Mahalle'].astype(str)
+
+risk_tablosu = risk_tablosu.sort_values(by='Tehlike_Yuzdesi', ascending=False)
+
+risk_tablosu = risk_tablosu[risk_tablosu['Tehlike_Yuzdesi'] > 0]
+
+plt.figure(figsize=(14, 8))
+sns.set_theme(style="whitegrid")
+
+ax = sns.barplot(
+    data=risk_tablosu,
+    x='ILCE',
+    y='Tehlike_Yuzdesi',
+    hue='ILCE',
+    palette='Reds_r',
+    legend=False
+)
+
+for index, p in enumerate(ax.patches):
+    x_pos = p.get_x() + p.get_width() / 2
+    y_pos = p.get_height()
+
+    etiket = risk_tablosu.iloc[index]['Etiket']
+    ax.text(x_pos, y_pos + 1, etiket, ha='center', fontsize=11, fontweight='bold')
+
+plt.xticks(rotation=45, ha='right', fontsize=10)
+plt.yticks(fontsize=10)
+
+plt.ylim(0, 110)
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.PercentFormatter(xmax=100))
+
+plt.title('Critical Risk Ratio: Percentage of Neighborhoods with < 1.5 m² Per Person', fontsize=16, fontweight='bold',
+          pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Percentage of High-Risk Neighborhoods (%)', fontsize=12, fontweight='bold')
+
+plt.tight_layout()
+
+plt.savefig("7_bar_risk_ratio_analysis.png", dpi=300)
+plt.close()
+
+print("\n[SUCCESS] Risk analysis ratio bar chart saved as '7_bar_risk_ratio_analysis.png'!")
