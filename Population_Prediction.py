@@ -5,8 +5,8 @@ BASE_DIR = Path(__file__).resolve().parent
 NEIGHBORHOOD_FILE = BASE_DIR / 'Neighborhood_population.csv'
 GROWTH_FILE = BASE_DIR / 'ilce_bazli_nufus_degisim_hizi.csv'
 OUTPUT_DIR = BASE_DIR / 'output'
-OUTPUT_CSV = OUTPUT_DIR / 'mahalle_2026_2027_projeksiyon.csv'
-OUTPUT_TXT = OUTPUT_DIR / 'mahalle_2026_2027_projeksiyon_terminal.txt'
+OUTPUT_CSV = OUTPUT_DIR / 'neighbourhood_2026_2027_projection.csv'
+OUTPUT_TXT = OUTPUT_DIR / 'neighbourhood_2026_2027_projection_terminal.txt'
 
 TR_LOWER_MAP = str.maketrans({'I': 'ı', 'İ': 'i'})
 TR_ASCII_MAP = str.maketrans({
