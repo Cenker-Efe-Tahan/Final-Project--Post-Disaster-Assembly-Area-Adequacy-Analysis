@@ -223,3 +223,45 @@ with open(txt_path, "w", encoding="utf-8") as f:
     f.write(final_rapor.to_string(index=False))
 
 print(f"[SUCCESS] Projection complete. Reports saved to 'output/Future_Risk_Projection.txt' and CSV.")
+
+# ==========================================
+# 6. ADDITIONAL AREA NEEDED TO REACH 1.5 M² PER PERSON
+
+alan_ihtiyac_df = merged_df.copy()
+
+alan_ihtiyac_df['HEDEF_ALAN_M2_2025'] = (alan_ihtiyac_df['NUFUS_2025'] * 1.5).round(2)
+alan_ihtiyac_df['HEDEF_ALAN_M2_2026'] = (alan_ihtiyac_df['TAHMINI_NUFUS_2026'] * 1.5).round(2)
+alan_ihtiyac_df['HEDEF_ALAN_M2_2027'] = (alan_ihtiyac_df['TAHMINI_NUFUS_2027'] * 1.5).round(2)
+
+alan_ihtiyac_df['EKLENMESI_GEREKEN_ALAN_M2_2025'] = (
+    alan_ihtiyac_df['HEDEF_ALAN_M2_2025'] - alan_ihtiyac_df['ALAN_M2']
+).clip(lower=0).round(2)
+
+alan_ihtiyac_df['EKLENMESI_GEREKEN_ALAN_M2_2026'] = (
+    alan_ihtiyac_df['HEDEF_ALAN_M2_2026'] - alan_ihtiyac_df['ALAN_M2']
+).clip(lower=0).round(2)
+
+alan_ihtiyac_df['EKLENMESI_GEREKEN_ALAN_M2_2027'] = (
+    alan_ihtiyac_df['HEDEF_ALAN_M2_2027'] - alan_ihtiyac_df['ALAN_M2']
+).clip(lower=0).round(2)
+
+# Sadece riskli mahalleleri al (en az bir yılda kişi başı alan 1.5 m²'nin altında olanlar)
+alan_ihtiyac_risk_df = alan_ihtiyac_df[
+    (alan_ihtiyac_df['KISI_BASI_M2_2025'] < 1.5) |
+    (alan_ihtiyac_df['KISI_BASI_M2_2026'] < 1.5) |
+    (alan_ihtiyac_df['KISI_BASI_M2_2027'] < 1.5)
+].copy()
+
+alan_ihtiyac_risk_df = alan_ihtiyac_risk_df[[
+    'HEDEF_ALAN_M2_2025', 'HEDEF_ALAN_M2_2026', 'HEDEF_ALAN_M2_2027',
+    'EKLENMESI_GEREKEN_ALAN_M2_2025', 'EKLENMESI_GEREKEN_ALAN_M2_2026', 'EKLENMESI_GEREKEN_ALAN_M2_2027'
+]].sort_values(by='EKLENMESI_GEREKEN_ALAN_M2_2027', ascending=False)
+
+alan_ihtiyac_csv = 'output/Additional_Area_Need_Projection.csv'
+alan_ihtiyac_risk_df.to_csv(alan_ihtiyac_csv, index=False, encoding='utf-8-sig')
+
+alan_ihtiyac_txt = 'output/Additional_Area_Need_Projection.txt'
+with open(alan_ihtiyac_txt, 'w', encoding='utf-8') as f:
+    f.write(alan_ihtiyac_risk_df.to_string(index=False))
+
+print(f"[SUCCESS] Additional area need report saved to '{alan_ihtiyac_txt}' and CSV.")
