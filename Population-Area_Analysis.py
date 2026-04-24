@@ -6,6 +6,8 @@ import seaborn as sns
 import difflib
 # Mute unnecessary Pandas warnings
 pd.options.mode.chained_assignment = None
+import os
+os.makedirs("Population-Area-Charts", exist_ok=True)
 
 # Turkish letters
 def fix_turkish_letters(text):
@@ -289,7 +291,7 @@ plt.text(0.5, 0.95, '',
          transform=ax.transAxes, fontsize=10, color='red', fontstyle='italic', ha='center')
 
 plt.tight_layout()
-plt.savefig("1_boxplot.png", dpi=300)
+plt.savefig("Population-Area-Charts/1_boxplot.png", dpi=300)
 plt.close()
 print("[SUCCESS] Zoomed Boxplot saved as '1_boxplot.png'!")
 
@@ -311,12 +313,11 @@ ax = sns.regplot(
 plt.ticklabel_format(style='plain', axis='x')
 plt.gca().xaxis.set_major_formatter(plt.matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
 plt.ylim(0, 40)
-
-plt.title('Zoomed-in View: Population vs Area Per Person (Excluding >30 m² Outliers)', fontsize=16, fontweight='bold', pad=15)
+plt.title('Zoomed-in View: Population vs Area Per Person (Excluding >40 m² Outliers)', fontsize=16, fontweight='bold', pad=15)
 plt.xlabel('Neighborhood Population', fontsize=12, fontweight='bold')
 plt.ylabel('Area Per Person (m²)', fontsize=12, fontweight='bold')
 plt.tight_layout()
-plt.savefig("2_scatter.png", dpi=300)
+plt.savefig("Population-Area-Charts/2_scatter.png", dpi=300)
 plt.close()
 print("[SUCCESS] Zoomed scatter plot saved as '2_scatter.png'!")
 
@@ -346,7 +347,7 @@ plt.title('Critical Risk Analysis: Number of Neighborhoods with < 1.5 m² Assemb
 plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
 plt.ylabel('Number of High-Risk Neighborhoods', fontsize=12, fontweight='bold')
 plt.tight_layout()
-plt.savefig("3_bar_risk_analysis.png", dpi=300)
+plt.savefig("Population-Area-Charts/3_bar_risk_analysis.png", dpi=300)
 plt.close()
 print("[SUCCESS] Risk analysis bar chart saved as '3_bar_risk_analysis.png'!")
 
@@ -387,6 +388,208 @@ plt.title('Critical Risk Ratio: Percentage of Neighborhoods with < 1.5 m² Per P
 plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
 plt.ylabel('Percentage of High-Risk Neighborhoods (%)', fontsize=12, fontweight='bold')
 plt.tight_layout()
-plt.savefig("4_bar_risk_ratio_analysis.png", dpi=300)
+plt.savefig("Population-Area-Charts/4_bar_risk_ratio_analysis.png", dpi=300)
 plt.close()
 print("[SUCCESS] Risk analysis ratio bar chart saved as '4_bar_risk_ratio_analysis.png'!")
+
+# ==========================================
+# POPULATION RISK DISTRIBUTION (STACKED BAR CHART)
+
+birlesik_veri['Risk_Kategorisi'] = birlesik_veri['KISI_BASI_M2'].apply(
+    lambda x: 'At-Risk Population (< 1.5 m²)' if x < 1.5 else 'Safe Population (>= 1.5 m²)'
+)
+
+# Get Safe and At-Risk population from MATCHED data
+matched_nufus = birlesik_veri.groupby(['ILCE', 'Risk_Kategorisi'])['NUFUS'].sum().unstack(fill_value=0)
+kategoriler = ['At-Risk Population (< 1.5 m²)', 'Safe Population (>= 1.5 m²)']
+matched_nufus = matched_nufus.reindex(columns=kategoriler, fill_value=0)
+
+# Get TOTAL population from the RAW population data (Ground Truth)
+raw_nufus = son_nufus.groupby('ILCE')['NUFUS'].sum().rename('Total_Raw_Population')
+
+# Combine them and calculate the "Unanalyzed / Missing" population
+final_nufus = pd.concat([raw_nufus, matched_nufus], axis=1).fillna(0)
+final_nufus['Unanalyzed Population (No Data)'] = final_nufus['Total_Raw_Population'] - (
+    final_nufus['At-Risk Population (< 1.5 m²)'] + final_nufus['Safe Population (>= 1.5 m²)']
+)
+
+# Sort districts by Total Raw Population
+final_nufus = final_nufus.sort_values(by='Total_Raw_Population', ascending=False)
+
+# Select the 3 columns for plotting
+plot_cols = ['At-Risk Population (< 1.5 m²)', 'Safe Population (>= 1.5 m²)', 'Unanalyzed Population (No Data)']
+plot_df = final_nufus[plot_cols]
+
+plt.figure(figsize=(16, 8))
+sns.set_theme(style="whitegrid")
+
+# Colors: Red (Risk), Green (Safe), Grey (Missing Data)
+ax = plot_df.plot(
+    kind='bar',
+    stacked=True,
+    color=['#d62728', '#2ca02c', '#7f7f7f'],
+    ax=plt.gca(),
+    edgecolor='white',
+    width=0.75
+)
+
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+
+plt.title('Human Impact: Population Risk Distribution by District (Including Missing Data)', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Total Population', fontsize=12, fontweight='bold')
+plt.xticks(rotation=45, ha='right', fontsize=10)
+plt.yticks(fontsize=10)
+plt.legend(title='Vulnerability Status', title_fontsize='11', fontsize='10', loc='upper right')
+plt.tight_layout()
+plt.savefig("Population-Area-Charts/5_population_risk.png", dpi=300)
+plt.close()
+print("[SUCCESS] Stacked population risk chart saved to '5_population_risk.png'!")
+
+# ==========================================
+# FULLY SAFE DISTRICTS DETAILED REPORT (TXT)
+
+# Target fully safe districts based on analysis
+target_districts = ['BEYDAG', 'CESME', 'SEFERIHISAR', 'KARABURUN', 'GUZELBAHCE', 'NARLIDERE']
+
+# Filter the matched data for these 6 fully safe districts
+safe_matched_df = birlesik_veri[birlesik_veri['ILCE'].isin(target_districts)].copy()
+
+# Filter the raw population data to find missing/unmatched neighborhoods for these districts
+raw_target_df = son_nufus[son_nufus['ILCE'].isin(target_districts)].copy()
+
+unmatched_df = pd.merge(raw_target_df, safe_matched_df[['ILCE', 'MAHALLE']], on=['ILCE', 'MAHALLE'], how='left',
+                        indicator=True)
+unmatched_df = unmatched_df[unmatched_df['_merge'] == 'left_only'][['ILCE', 'MAHALLE', 'NUFUS']]
+unmatched_df = unmatched_df.sort_values(by=['ILCE', 'MAHALLE'])
+
+# Sort the matched data for a cleaner report (by district, then per capita area)
+safe_matched_df = safe_matched_df.sort_values(by=['ILCE', 'KISI_BASI_M2'], ascending=[True, False])
+
+os.makedirs("output", exist_ok=True)
+
+# Write to TXT file
+report_path = "output/fully_safe_districts.txt"
+with open(report_path, "w", encoding="utf-8") as f:
+    f.write("************************************************************************\n")
+    f.write("          FULLY SAFE DISTRICTS DETAILED ANALYSIS REPORT\n")
+    f.write("************************************************************************\n\n")
+
+    f.write("* UNMATCHED / MISSING NEIGHBORHOODS\n")
+    f.write("The following neighborhoods in these districts could not be matched with Area data.\n")
+    f.write("They are excluded from the safety calculations (Treated as No Data).\n\n")
+
+    if not unmatched_df.empty:
+        unmatched_report = unmatched_df.copy()
+        unmatched_report.columns = ['DISTRICT', 'UNMATCHED_NEIGHBORHOOD', 'POPULATION']
+        f.write(unmatched_report.to_string(index=False))
+        f.write("\n")
+    else:
+        f.write("All neighborhoods in these districts were successfully matched.\n\n")
+
+    f.write("------------------------------------------------------------------------\n")
+    f.write("DETAILS OF MATCHED SAFE NEIGHBORHOODS\n")
+    f.write("------------------------------------------------------------------------\n")
+
+    final_report_df = safe_matched_df[['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2']]
+    final_report_df.columns = ['DISTRICT', 'NEIGHBORHOOD', 'POPULATION', 'TOTAL_AREA_M2', 'PER_CAPITA_M2']
+
+    f.write(final_report_df.to_string(index=False))
+
+print(f"[SUCCESS] Fully safe districts detailed report saved to '{report_path}'.")
+
+# ==========================================
+# 6. FULLY SAFE DISTRICTS CHART
+
+# Find districts with at least one at-risk neighborhood
+at_risk_districts = birlesik_veri[birlesik_veri['KISI_BASI_M2'] < 1.5]['ILCE'].unique()
+
+# Find districts with NO at-risk neighborhoods (our case)
+all_districts = son_nufus['ILCE'].unique()
+safe_districts = [d for d in all_districts if d not in at_risk_districts]
+total_neighborhoods = son_nufus.groupby('ILCE').size().rename('Total_Neighborhoods')
+
+# Get matched (safe) neighborhoods per district
+matched_neighborhoods = birlesik_veri.groupby('ILCE').size().rename('Safe_Matched')
+
+completeness_df = pd.concat([total_neighborhoods, matched_neighborhoods], axis=1).fillna(0)
+completeness_df['Missing_Unmatched'] = completeness_df['Total_Neighborhoods'] - completeness_df['Safe_Matched']
+
+# Keep only fully safe districts
+safe_completeness_df = completeness_df.loc[safe_districts].copy()
+
+# Sort by total neighborhoods descending
+safe_completeness_df = safe_completeness_df.sort_values(by='Total_Neighborhoods', ascending=False)
+
+plot_safe_df = safe_completeness_df[['Safe_Matched', 'Missing_Unmatched']]
+plot_safe_df.columns = ['Safe & Matched Data', 'Missing / Unmatched Data']
+
+plt.figure(figsize=(14, 8))
+sns.set_theme(style="whitegrid")
+
+# (Green: Safe, Yellow: Missing)
+ax = plot_safe_df.plot(
+    kind='bar',
+    stacked=True,
+    color=['#2ca02c', '#ffc107'],
+    ax=plt.gca(),
+    edgecolor='white',
+    width=0.65
+)
+
+plt.title('Fully Safe Districts: Analyzed Neighborhoods vs. Missing Data', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Number of Neighborhoods', fontsize=12, fontweight='bold')
+plt.xticks(rotation=45, ha='right', fontsize=10)
+plt.yticks(fontsize=10)
+
+for c in ax.containers:
+    labels = [f'{int(v.get_height())}' if v.get_height() > 0 else '' for v in c]
+    ax.bar_label(c, labels=labels, label_type='center', fontsize=10, fontweight='bold', color='black')
+
+plt.legend(title='Neighborhood Data Status', title_fontsize='11', fontsize='10', loc='upper right')
+
+plt.tight_layout()
+plt.savefig("Population-Area-Charts/6_safe_districts_completeness.png", dpi=300)
+plt.close()
+print("[SUCCESS] Fully safe districts completeness chart saved as '6_safe_districts_completeness.png'!")
+
+# ======================================================================
+# MAX VULNERABILITY RATIO: (AT-RISK + UNANALYZED) / TOTAL POPULATION
+
+# Calculate the worst-case scenario risk ratio per district
+final_nufus['Max_Vulnerability_Ratio'] = (
+    (final_nufus['At-Risk Population (< 1.5 m²)'] + final_nufus['Unanalyzed Population (No Data)'])
+    / final_nufus['Total_Raw_Population']
+) * 100
+
+risk_ratio_df = final_nufus.reset_index().sort_values(by='Max_Vulnerability_Ratio', ascending=False)
+
+plt.figure(figsize=(14, 8))
+sns.set_theme(style="whitegrid")
+
+# (dark red for highest risk)
+ax = sns.barplot(
+    data=risk_ratio_df,
+    x='ILCE',
+    y='Max_Vulnerability_Ratio',
+    palette='Reds_r',
+    hue='ILCE',
+    legend=False
+)
+
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.PercentFormatter(xmax=100))
+plt.ylim(0, 105) # Add a little breathing room at the top
+
+for i in ax.containers:
+    ax.bar_label(i, fmt='%.1f%%', padding=3, fontsize=10, fontweight='bold')
+
+plt.title('Worst-Case Scenario: (At-Risk + Missing Data Population) / Total Population', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Maximum Vulnerability Ratio (%)', fontsize=12, fontweight='bold')
+plt.xticks(rotation=45, ha='right', fontsize=10)
+plt.yticks(fontsize=10)
+plt.tight_layout()
+plt.savefig("Population-Area-Charts/7_max_vulnerability_ratio.png", dpi=300)
+plt.close()
+print("[SUCCESS] Maximum vulnerability ratio chart saved to '7_max_vulnerability_ratio.png'!")

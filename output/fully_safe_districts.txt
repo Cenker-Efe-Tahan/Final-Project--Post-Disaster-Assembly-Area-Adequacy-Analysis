@@ -1,0 +1,125 @@
+************************************************************************
+          FULLY SAFE DISTRICTS DETAILED ANALYSIS REPORT
+************************************************************************
+
+* UNMATCHED / MISSING NEIGHBORHOODS
+The following neighborhoods in these districts could not be matched with Area data.
+They are excluded from the safety calculations (Treated as No Data).
+
+   DISTRICT UNMATCHED_NEIGHBORHOOD  POPULATION
+  NARLIDERE                ATATURK        5363
+SEFERIHISAR                 AKARCA        3019
+SEFERIHISAR            NECATHEPKON        6024
+------------------------------------------------------------------------
+DETAILS OF MATCHED SAFE NEIGHBORHOODS
+------------------------------------------------------------------------
+   DISTRICT     NEIGHBORHOOD  POPULATION  TOTAL_AREA_M2  PER_CAPITA_M2
+     BEYDAG           AKTEPE         451        30000.0          66.52
+     BEYDAG          KARAOBA         341        18000.0          52.79
+     BEYDAG           BEYKOY         291         3000.0          10.31
+     BEYDAG       CIFTLIKKOY         176         1700.0           9.66
+     BEYDAG         EGRIDERE         635         5360.0           8.44
+     BEYDAG          ADAKURE         387         3000.0           7.75
+     BEYDAG         COMAKLAR         300         1600.0           5.33
+     BEYDAG        YESILTEPE         269         1280.0           4.76
+     BEYDAG          HALIKOY         381         1800.0           4.72
+     BEYDAG         YAGCILAR         428         2000.0           4.67
+     BEYDAG       PALAMUTCUK         234         1088.0           4.65
+     BEYDAG         BAKIRKOY         221         1012.0           4.58
+     BEYDAG           ERIKLI         330         1500.0           4.55
+     BEYDAG         TABAKLAR          65          296.0           4.55
+     BEYDAG         MENDERES         128          568.0           4.44
+     BEYDAG           CAMLIK         378         1660.0           4.39
+     BEYDAG         KURUDERE         462         2008.0           4.35
+     BEYDAG         MUTAFLAR         291         1260.0           4.33
+     BEYDAG     YUKARIAKTEPE         299         1280.0           4.28
+     BEYDAG         SARIKAYA         181          768.0           4.24
+     BEYDAG         YENIYURT          74          304.0           4.11
+     BEYDAG   YUKARITOSUNLAR         157          608.0           3.87
+     BEYDAG        ALAKECILI         102          352.0           3.45
+     BEYDAG          ATATURK        2262         5697.0           2.52
+     BEYDAG       CUMHURIYET        3061         7656.0           2.50
+      CESME          CAKABEY         265         7000.0          26.42
+      CESME            ARDIC         613        15118.0          24.66
+      CESME         ALTINKUM         212         5001.0          23.59
+      CESME      SEHITMEHMET         396         6440.0          16.26
+      CESME            ILDIR         751        11300.0          15.05
+      CESME          KARAKOY          28          344.0          12.29
+      CESME          BOYALIK         495         5880.0          11.88
+      CESME          SAKARYA        1202        14100.0          11.73
+      CESME         GERMIYAN        1783        16592.0           9.31
+      CESME       UNIVERSITE         556         5146.0           9.26
+      CESME    FAHRETTINPASA         427         3276.0           7.67
+      CESME       CUMHURIYET        1264         9456.0           7.48
+      CESME       CELALBAYAR         866         6240.0           7.21
+      CESME       ALTINYUNUS         453         3260.0           7.20
+      CESME          ALACATI       10715        75493.0           7.05
+      CESME           DALYAN        2592        14470.0           5.58
+      CESME             YALI        1070         5920.0           5.53
+      CESME          MUSALLA        5534        30143.0           5.45
+      CESME          CIFTLIK        2427        12430.0           5.12
+      CESME            SIFNE        1224         5838.0           4.77
+      CESME           OVACIK        3115        14562.0           4.67
+      CESME       ISMETINONU        5780        22770.0           3.94
+      CESME            ILICA        1282         4670.0           3.64
+      CESME         REISDERE        5199        18500.0           3.56
+      CESME          16EYLUL        3653         9150.0           2.50
+ GUZELBAHCE        KUCUKKAYA         269        10180.0          37.84
+ GUZELBAHCE          SITELER        3002        26039.0           8.67
+ GUZELBAHCE           CELEBI        2692        16297.0           6.05
+ GUZELBAHCE     KAHRAMANDERE        6134        34791.0           5.67
+ GUZELBAHCE          PAYAMLI         365         2047.0           5.61
+ GUZELBAHCE          ATATURK        2906        15789.0           5.43
+ GUZELBAHCE MUSTAFAKEMALPASA        4220        17786.0           4.21
+ GUZELBAHCE             YALI        6030        25284.0           4.19
+ GUZELBAHCE             YAKA         583         2291.0           3.93
+ GUZELBAHCE          MALTEPE        4313        15363.0           3.56
+ GUZELBAHCE            CAMLI        2085         5739.0           2.75
+ GUZELBAHCE            YELKI        6875        18245.0           2.65
+  KARABURUN       KUCUKBAHCE         542        32150.0          59.32
+  KARABURUN        ANBARSEKI         253         7150.0          28.26
+  KARABURUN           PARLAK         156         4380.0          28.08
+  KARABURUN           ISKELE        2281        54326.0          23.82
+  KARABURUN           INECIK         271         3730.0          13.76
+  KARABURUN           MERKEZ        1344        14986.0          11.15
+  KARABURUN            YAYLA          87          826.0           9.49
+  KARABURUN           SALMAN         132         1123.0           8.51
+  KARABURUN        SARPINCIK         141         1000.0           7.09
+  KARABURUN         MORDOGAN        6249        39393.0           6.30
+  KARABURUN          HASSEKI         137          791.0           5.77
+  KARABURUN          TEPEBOZ         371         2076.0           5.60
+  KARABURUN         KOSEDERE         488         1800.0           3.69
+  KARABURUN        EGLENHOCA         507         1700.0           3.35
+  KARABURUN             SAIP         519         1600.0           3.08
+  KARABURUN           BOZKOY         247          730.0           2.96
+  NARLIDERE        LIMANREIS        3213        32949.0          10.25
+  NARLIDERE            HUZUR        6803        53002.0           7.79
+  NARLIDERE         YENIKALE        5217        31728.0           6.08
+  NARLIDERE            NARLI        7321        34334.0           4.69
+  NARLIDERE      SAHILEVLERI        2016         7774.0           3.86
+  NARLIDERE            ILICA        8231        29975.0           3.64
+  NARLIDERE        CATALKAYA        6488        20855.0           3.21
+  NARLIDERE          CAMTEPE        5952        14941.0           2.51
+  NARLIDERE        ALTIEVLER        2224         4297.0           1.93
+  NARLIDERE          2.INONU        8492        13380.0           1.58
+SEFERIHISAR         IHSANIYE         100         2069.0          20.69
+SEFERIHISAR           TURGUT         392         5646.0          14.40
+SEFERIHISAR          PAYAMLI        1776        19168.0          10.79
+SEFERIHISAR          ORHANLI        1426        13040.0           9.14
+SEFERIHISAR       CUMHURIYET        1597        14000.0           8.77
+SEFERIHISAR            DUZCE        1503        12850.0           8.55
+SEFERIHISAR           GOLCUK         137         1000.0           7.30
+SEFERIHISAR          CAMTEPE         126          855.0           6.79
+SEFERIHISAR          TEPECIK        2018        12438.0           6.16
+SEFERIHISAR           BEYLER         342         1700.0           4.97
+SEFERIHISAR          SIGACIK        4273        17160.0           4.02
+SEFERIHISAR          ATATURK        1696         6700.0           3.95
+SEFERIHISAR         HIDIRLIK        7076        27779.0           3.93
+SEFERIHISAR         BENGILER        2670         9800.0           3.67
+SEFERIHISAR          GODENCE         337         1100.0           3.26
+SEFERIHISAR        KAVAKDERE         308         1000.0           3.25
+SEFERIHISAR        CAMIKEBIR        9997        29841.0           2.98
+SEFERIHISAR      MERSINALANI        3282         9563.0           2.91
+SEFERIHISAR           ULAMIS        3107         7197.0           2.32
+SEFERIHISAR  COLAKIBRAHIMBEY        4633        10000.0           2.16
+SEFERIHISAR         TURABIYE        7873        12000.0           1.52
