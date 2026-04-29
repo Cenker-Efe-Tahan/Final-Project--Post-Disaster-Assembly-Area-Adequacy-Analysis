@@ -215,9 +215,7 @@ for ilce in son_nufus['ILCE'].unique():
 
             available_afad_indices.remove(best_match_idx)
 
-# Build the DataFrame
 birlesik_veri = pd.DataFrame(matched_data)
-
 birlesik_veri['KISI_BASI_M2'] = (birlesik_veri['ALAN_M2'] / birlesik_veri['NUFUS']).round(2)
 
 print(f"\n--- INTELLIGENT MERGE SUCCESSFUL: {len(birlesik_veri)} Neighborhoods Matched! ---")
@@ -226,10 +224,24 @@ print(f"\n--- INTELLIGENT MERGE SUCCESSFUL: {len(birlesik_veri)} Neighborhoods M
 # 3.5. VALIDATION EXPORT & TERMINAL CHECK
 
 birlesik_veri = birlesik_veri.rename(columns={'NUFUS_MAHALLE': 'MAHALLE'})
-
 rapor_df = birlesik_veri[['ILCE', 'MAHALLE', 'AFAD_MAHALLE', 'ESLESME_TURU']]
-rapor_df.to_excel("Eslesme_Raporu.xlsx", index=False)
-print("[SUCCESS] Validation report saved as 'Eslesme_Raporu.xlsx'.")
+report_path = 'output/Matching_Report.txt'
+
+with open(report_path, 'w', encoding='utf-8') as f:
+    f.write("****************************************************************************************************\n")
+    f.write("                              NEIGHBORHOOD MATCHING VALIDATION REPORT\n")
+    f.write("====================================================================================================\n")
+    f.write(f"Total matched/processed records: {len(rapor_df)}\n\n")
+    cols = rapor_df.columns.tolist()
+    header = "".join([f"{str(col):<30}" for col in cols])
+    f.write(header + "\n")
+    f.write("-" * (30 * len(cols)) + "\n")
+
+    for _, row in rapor_df.iterrows():
+        line = "".join([f"{str(val):<30}" for val in row])
+        f.write(line + "\n")
+
+print(f"[SUCCESS] Human-readable matching report saved to '{report_path}'.")
 
 smart_matches = birlesik_veri[birlesik_veri['ESLESME_TURU'] != 'EXACT']
 print("\n--- SAMPLE OF SMART RULE MATCHES ---")
@@ -593,3 +605,45 @@ plt.tight_layout()
 plt.savefig("Population-Area-Charts/7_max_vulnerability_ratio.png", dpi=300)
 plt.close()
 print("[SUCCESS] Maximum vulnerability ratio chart saved to '7_max_vulnerability_ratio.png'!")
+
+
+# ======================================================================
+# TOTAL ADDITIONAL AREA REQUIRED BY DISTRICT (m²)
+
+# Calculate required area for matched neighborhoods (Target: 1.5 m² per person)
+birlesik_veri['TARGET_AREA'] = birlesik_veri['NUFUS'] * 1.5
+birlesik_veri['AREA_DEFICIT'] = (birlesik_veri['TARGET_AREA'] - birlesik_veri['ALAN_M2']).clip(lower=0)
+
+# Group by district and filter out those with zero deficit
+deficit_df = birlesik_veri.groupby('ILCE')['AREA_DEFICIT'].sum().reset_index()
+deficit_df = deficit_df[deficit_df['AREA_DEFICIT'] > 0].sort_values(by='AREA_DEFICIT', ascending=False)
+
+plt.figure(figsize=(14, 8))
+sns.set_theme(style="whitegrid")
+
+# Plot total missing area (Orange-Red gradient for severity)
+ax = sns.barplot(
+    data=deficit_df,
+    x='ILCE',
+    y='AREA_DEFICIT',
+    palette='YlOrRd_r',
+    hue='ILCE',
+    legend=False
+)
+
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+
+for i in ax.containers:
+    labels = [f"{int(v.get_height()):,}" for v in i]
+    ax.bar_label(i, labels=labels, padding=5, fontsize=9, fontweight='bold', rotation=45)
+
+plt.ylim(0, deficit_df['AREA_DEFICIT'].max() * 1.20)
+plt.title('Total Additional Assembly Area Needed by District (Target: 1.5 m²/person)', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+plt.ylabel('Total Missing Area (m²)', fontsize=12, fontweight='bold')
+plt.xticks(rotation=45, ha='right', fontsize=10)
+plt.yticks(fontsize=10)
+plt.tight_layout()
+plt.savefig("Population-Area-Charts/8_additional_area_required.png", dpi=300)
+plt.close()
+print("[SUCCESS] Additional area required chart saved to '8_additional_area_required.png'!")

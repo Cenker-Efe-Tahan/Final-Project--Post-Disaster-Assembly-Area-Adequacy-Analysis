@@ -224,44 +224,41 @@ with open(txt_path, "w", encoding="utf-8") as f:
 
 print(f"[SUCCESS] Projection complete. Reports saved to 'output/Future_Risk_Projection.txt' and CSV.")
 
+
 # ==========================================
 # 6. ADDITIONAL AREA NEEDED TO REACH 1.5 M² PER PERSON
 
 alan_ihtiyac_df = merged_df.copy()
+alan_ihtiyac_df['TARGET_NEED'] = (alan_ihtiyac_df['NUFUS_2025'] * 1.5).round(1)
+alan_ihtiyac_df['ADDITIONAL_REQUIRED'] = (
+        alan_ihtiyac_df['TARGET_NEED'] - alan_ihtiyac_df['ALAN_M2']
+).clip(lower=0).round(1)
 
-alan_ihtiyac_df['HEDEF_ALAN_M2_2025'] = (alan_ihtiyac_df['NUFUS_2025'] * 1.5).round(2)
-alan_ihtiyac_df['HEDEF_ALAN_M2_2026'] = (alan_ihtiyac_df['TAHMINI_NUFUS_2026'] * 1.5).round(2)
-alan_ihtiyac_df['HEDEF_ALAN_M2_2027'] = (alan_ihtiyac_df['TAHMINI_NUFUS_2027'] * 1.5).round(2)
+# Only taking the risky neighbourhoods
+risk_only_df = alan_ihtiyac_df[alan_ihtiyac_df['KISI_BASI_M2_2025'] < 1.5].copy()
 
-alan_ihtiyac_df['EKLENMESI_GEREKEN_ALAN_M2_2025'] = (
-    alan_ihtiyac_df['HEDEF_ALAN_M2_2025'] - alan_ihtiyac_df['ALAN_M2']
-).clip(lower=0).round(2)
+# From most to least
+report_df = risk_only_df[[
+    'ILCE', 'MAHALLE', 'ALAN_M2', 'TARGET_NEED', 'ADDITIONAL_REQUIRED'
+]].sort_values(by='ADDITIONAL_REQUIRED', ascending=False)
 
-alan_ihtiyac_df['EKLENMESI_GEREKEN_ALAN_M2_2026'] = (
-    alan_ihtiyac_df['HEDEF_ALAN_M2_2026'] - alan_ihtiyac_df['ALAN_M2']
-).clip(lower=0).round(2)
+report_df.columns = ['DISTRICT', 'NEIGHBORHOOD', 'CURRENT_AREA', 'TARGET_NEED', 'ADDITIONAL_REQUIRED']
 
-alan_ihtiyac_df['EKLENMESI_GEREKEN_ALAN_M2_2027'] = (
-    alan_ihtiyac_df['HEDEF_ALAN_M2_2027'] - alan_ihtiyac_df['ALAN_M2']
-).clip(lower=0).round(2)
-
-# Sadece riskli mahalleleri al (en az bir yılda kişi başı alan 1.5 m²'nin altında olanlar)
-alan_ihtiyac_risk_df = alan_ihtiyac_df[
-    (alan_ihtiyac_df['KISI_BASI_M2_2025'] < 1.5) |
-    (alan_ihtiyac_df['KISI_BASI_M2_2026'] < 1.5) |
-    (alan_ihtiyac_df['KISI_BASI_M2_2027'] < 1.5)
-].copy()
-
-alan_ihtiyac_risk_df = alan_ihtiyac_risk_df[[
-    'HEDEF_ALAN_M2_2025', 'HEDEF_ALAN_M2_2026', 'HEDEF_ALAN_M2_2027',
-    'EKLENMESI_GEREKEN_ALAN_M2_2025', 'EKLENMESI_GEREKEN_ALAN_M2_2026', 'EKLENMESI_GEREKEN_ALAN_M2_2027'
-]].sort_values(by='EKLENMESI_GEREKEN_ALAN_M2_2027', ascending=False)
-
-alan_ihtiyac_csv = 'output/Additional_Area_Need_Projection.csv'
-alan_ihtiyac_risk_df.to_csv(alan_ihtiyac_csv, index=False, encoding='utf-8-sig')
-
-alan_ihtiyac_txt = 'output/Additional_Area_Need_Projection.txt'
+alan_ihtiyac_csv = 'output/Additional_Area_Need.csv'
+report_df.to_csv(alan_ihtiyac_csv, index=False, encoding='utf-8-sig')
+alan_ihtiyac_txt = 'output/Additional_Area_Need.txt'
 with open(alan_ihtiyac_txt, 'w', encoding='utf-8') as f:
-    f.write(alan_ihtiyac_risk_df.to_string(index=False))
+    f.write("=========================================================================================\n")
+    f.write("                 REQUIRED ADDITIONAL ASSEMBLY AREA (MINIMUM 1.5 m²/person)\n")
+    f.write("=========================================================================================\n")
+    f.write(f"Total neighborhoods analyzed with shortage: {len(report_df)}\n\n")
 
-print(f"[SUCCESS] Additional area need report saved to '{alan_ihtiyac_txt}' and CSV.")
+    header = f"{'DISTRICT':<18} {'NEIGHBORHOOD':<37} {'CURRENT_AREA':<15} {'TARGET_NEED':<15} {'ADDITIONAL_REQUIRED':<20}\n"
+    f.write(header)
+    f.write("-" * 95 + "\n")
+#For data
+    for _, row in report_df.iterrows():
+        line = f"{row['DISTRICT']:<18} {row['NEIGHBORHOOD']:<38} {row['CURRENT_AREA']:<15.1f} {row['TARGET_NEED']:<15.1f} {row['ADDITIONAL_REQUIRED']:<20.1f}\n"
+        f.write(line)
+
+print(f"[SUCCESS] Flawlessly aligned report saved to '{alan_ihtiyac_txt}'.")
