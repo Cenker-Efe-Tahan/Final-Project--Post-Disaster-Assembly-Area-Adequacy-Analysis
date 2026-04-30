@@ -1,0 +1,54 @@
+============================================================
+XGBOOST HYBRID POPULATION + CAPACITY PIPELINE SUMMARY
+============================================================
+Matched neighborhoods used in model/capacity pipeline: 1177
+Unmatched neighborhoods excluded from area merge: 122
+Train rows: 1882
+Test rows: 472
+Train neighborhoods: 941
+Test neighborhoods: 236
+
+Held-out evaluation metrics
+MAE  : 84.0282
+RMSE : 350.9305
+R^2  : 0.9966
+
+Important note:
+The currently available 2026 and 2027 targets come from the existing projection file.
+So this script correctly implements the recommended hybrid pipeline, but for production
+the model should be retrained with real multi-year neighborhood population history.
+
+Top 10 model features
+- num__CURRENT_POP: 0.768038
+- num__LOG_CURRENT_POP: 0.205838
+- num__CURRENT_TARGET_AREA_M2: 0.010917
+- num__LOG_ALAN_M2: 0.004759
+- num__ALAN_M2: 0.002697
+- cat__ILCE_BORNOVA: 0.002290
+- num__ILCE_MAHALLE_SAYISI: 0.001003
+- num__ILCE_TOPLAM_NUFUS: 0.000770
+- cat__ILCE_BAYRAKLI: 0.000621
+- num__ARTIS_HIZI_BINDE: 0.000617
+
+Top 20 risk-side neighborhoods by 2027 extra area need
+  ILCE_ORJ        MAHALLE_ORJ  XGB_TAHMINI_NUFUS_2027  EKLENMESI_GEREKEN_ALAN_M2_XGB_2027
+      Buca Mustafa Kemal Mah.                   21860                             31190.0
+   Bornova      Yesilova Mah.                   32749                             30723.5
+     Cigli   Kucuk Cigli Mah.                   21895                             29805.5
+   Bornova         Inonu Mah.                   25640                             29360.0
+Karabaglar         Vatan Mah.                   23790                             29320.0
+Karabaglar      Gunaltay Mah.                   20209                             25386.5
+      Buca     Buca Koop Mah.                   19693                             25194.5
+ Karsiyaka      Semikler Mah.                   28586                             25179.0
+   Bornova      Doganlar Mah.                   22486                             24569.0
+      Buca     Camlikule Mah.                   22087                             23615.5
+      Buca         Inonu Mah.                   19714                             23615.0
+   Bornova        Evka 3 Mah.                   20406                             22709.0
+ Karsiyaka      Dedebasi Mah.                   20161                             22591.5
+   Bornova    Rafet Pasa Mah.                   17361                             22041.5
+      Buca      Yigitler Mah.                   14040                             20375.0
+   Menemen      Istiklal Mah.                   16672                             19251.0
+      Buca      Hurriyet Mah.                   14870                             19031.0
+      Buca        Yildiz Mah.                   27776                             18864.0
+   Torbali    Ayrancilar Mah.                   19241                             18737.5
+     Konak     Guzelyali Mah.                   16105                             18271.5
