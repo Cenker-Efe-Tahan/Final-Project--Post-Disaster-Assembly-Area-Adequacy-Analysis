@@ -23,13 +23,15 @@ import os
 os.makedirs("outputs", exist_ok=True)
 
 # Load data
-s2 = pd.read_csv("izmir_mahalle_ndvi_ndbi_with_provinces.csv")
-lst = pd.read_csv("izmir_mahalle_lst_with_provinces.csv")
+lst = pd.read_csv("izmir_mahalle_lst_final_latest_clean.csv")
+s2 = pd.read_csv("izmir_mahalle_s2_final_latest_clean.csv")
 
 # Drop duplicates and merge
-s2 = s2.drop_duplicates(subset="name", keep="first")
-lst = lst.drop_duplicates(subset="name", keep="first")
-df = s2.merge(lst[["name", "LST_C", "NDVI_L8", "NDBI_L8"]], on="name")
+df = pd.merge(
+    s2[["name", "ilce_adi", "NDVI", "NDBI"]],
+    lst[["name", "ilce_adi", "LST_C", "NDVI_L8", "NDBI_L8"]],
+    on=["name", "ilce_adi"]
+)
 
 # City-wide LST mean (used for hotspot threshold)
 LST_MEAN = df["LST_C"].mean()
@@ -87,7 +89,7 @@ sns.heatmap(
 
 ax.set_title(
     "Correlation Matrix: NDVI, NDBI and LST\n"
-    "İzmir Neighborhood-Level Analysis  (n=1,356)",
+    "İzmir Neighborhood-Level Analysis  (n=1,074)",
     fontsize=12, fontweight="bold", pad=14, color=PALETTE["dark"]
 )
 ax.set_xticklabels(corr_labels, fontsize=10, rotation=15, ha="right")
