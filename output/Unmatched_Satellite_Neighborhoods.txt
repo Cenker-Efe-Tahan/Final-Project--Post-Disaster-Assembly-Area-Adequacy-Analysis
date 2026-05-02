@@ -1,0 +1,147 @@
+*********************************************************************************
+                 MISSING / UNMATCHED SATELLITE NEIGHBORHOODS REPORT
+=================================================================================
+Total Unmatched Neighborhoods: 108
+>>> DISTRICT: ALIAGA
+    - Aliağa Organize Sanayi Bölgesi
+    - Örnekkent Mahallesi
+    - Şakran Hasbi Efendi Mahallesi
+    - Şakran Sayfiye Mahallesi
+
+>>> DISTRICT: BAYINDIR
+    - Atatürk Mahallesi
+    - Hacı Beşir Mahallesi
+    - Çınar Mahallesi
+    - Çırpı Cami Mahallesi
+
+>>> DISTRICT: BAYRAKLI
+    - 100. Yıl Mahallesi
+
+>>> DISTRICT: BERGAMA
+    - Bergama Organize Sanayi Bölgesi
+    - Dereköy Mahallesi
+    - Kadriye Mahallesi
+    - Talatpaşa Mahallesi
+    - Turabey Mahallesi
+    - Yukarıbey Kaplan Mahallesi
+    - İsmailli Hacılar Mahallesi
+
+>>> DISTRICT: BORNOVA
+    - Sarnıçköy Mahallesi
+    - Yakaköy Mahallesi
+
+>>> DISTRICT: BUCA
+    - Buca Organize Sanayi Bölgesi
+    - Yıldızlar Mahallesi
+
+>>> DISTRICT: CIGLI
+    - Sasalı Merkez Mahallesi
+
+>>> DISTRICT: DIKILI
+    - Mazılı Mahallesi
+
+>>> DISTRICT: KARABAGLAR
+    - Abdi İpekçi Mahallesi
+    - Ali Fuat Erden Mahallesi
+    - Esenlik Mahallesi
+    - General Kazım Özalp Mahallesi
+    - Sarıyer Mahallesi
+    - Umut Mahallesi
+    - Özgür Mahallesi
+    - İhsan Alyanak Mahallesi
+
+>>> DISTRICT: KEMALPASA
+    - Bağyurdu Organize Sanayi Bölgesi
+    - Egemen Mahallesi
+    - Kemalpaşa Organize Sanayi Bölgesi
+    - Yenmiş Mahallesi
+    - Çınarköy Mahallesi
+
+>>> DISTRICT: KINIK
+    - Kınık Organize Sanayi Bölgesi
+
+>>> DISTRICT: KONAK
+    - 1.Kadriye Mahallesi
+    - 26 Ağustos Mahallesi
+    - Akın Simav Mahallesi
+    - Ali Reis Mahallesi
+    - Altay Mahallesi
+    - Altınordu Mahallesi
+    - Atamer Mahallesi
+    - Ballıkuyu Mahallesi
+    - Bozkurt Mahallesi
+    - Dayıemir Mahallesi
+    - Dolaplıkuyu Mahallesi
+    - Ege Mahallesi
+    - Etiler Mahallesi
+    - Faik Paşa Mahallesi
+    - Fevzi Paşa Mahallesi
+    - Güngör Mahallesi
+    - Güzelyurt Mahallesi
+    - Hasan Özdemir Mahallesi
+    - Hurşidiye Mahallesi
+    - Kadifekale Mahallesi
+    - Kahraman Mescit Mahallesi
+    - Kemal Reis Mahallesi
+    - Kestelli Mahallesi
+    - Kocakapı Mahallesi
+    - Kocatepe Mahallesi
+    - Kosova Mahallesi
+    - Kubilay Mahallesi
+    - Küçükada Mahallesi
+    - Levent Mahallesi
+    - Mecidiye Mahallesi
+    - Mehmet Akif Mahallesi
+    - Mehtap Mahallesi
+    - Millet Mahallesi
+    - Mirali Mahallesi
+    - Namazgah Mahallesi
+    - Odunkapı Mahallesi
+    - Pazaryeri Mahallesi
+    - Sakarya Mahallesi
+    - Sümer Mahallesi
+    - Süvari Mahallesi
+    - Tan Mahallesi
+    - Trakya Mahallesi
+    - Turgut Reis Mahallesi
+    - Tuzcu Mahallesi
+    - Türkyılmaz Mahallesi
+    - Tınaztepe Mahallesi
+    - Uğur Mahallesi
+    - Vezirağa Mahallesi
+    - Yavuz Selim Mahallesi
+    - Zafertepe Mahallesi
+    - Zeybek Mahallesi
+    - Çahabey Mahallesi
+    - Çimentepe Mahallesi
+    - Ülkü Mahallesi
+    - İmariye Mahallesi
+    - İsmet Kaptan Mahallesi
+    - Şehit Nedim Tuğaltay Mahallesi
+
+>>> DISTRICT: MENDERES
+    - Oğlananası Cumhuriyet Mahallesi
+    - Tekeli Fevzi Çakmak Mahallesi
+    - İTOB Organize Sanayi Bölgesi
+
+>>> DISTRICT: MENEMEN
+    - Kır Mahallesi
+    - Seydinnasrullah Mahallesi
+    - Tülbentli Mahallesi
+    - Yanıkköy Mahallesi
+    - İzmir Serbest Bölgesi
+
+>>> DISTRICT: ODEMIS
+    - Dereuzunyer Mahallesi
+
+>>> DISTRICT: SEFERIHISAR
+    - Akarca Mahallesi
+    - Necat Hepkon Mahallesi
+
+>>> DISTRICT: TIRE
+    - İbni Melek Organize Sanayi Bölgesi
+
+>>> DISTRICT: TORBALI
+    - Subaşı Mahallesi
+    - Torbalı Organize Sanayi Bölgesi
+    - Çaybaşı Mahallesi
