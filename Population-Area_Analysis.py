@@ -419,9 +419,9 @@ matched_nufus = matched_nufus.reindex(columns=kategoriler, fill_value=0)
 # Get TOTAL population from the RAW population data (Ground Truth)
 raw_nufus = son_nufus.groupby('ILCE')['NUFUS'].sum().rename('Total_Raw_Population')
 
-# Combine them and calculate the "Unanalyzed / Missing" population
+# Combine them and calculate the Missing-No data population
 final_nufus = pd.concat([raw_nufus, matched_nufus], axis=1).fillna(0)
-final_nufus['Unanalyzed Population (No Data)'] = final_nufus['Total_Raw_Population'] - (
+final_nufus['No Data'] = final_nufus['Total_Raw_Population'] - (
     final_nufus['At-Risk Population (< 1.5 m²)'] + final_nufus['Safe Population (>= 1.5 m²)']
 )
 
@@ -429,7 +429,7 @@ final_nufus['Unanalyzed Population (No Data)'] = final_nufus['Total_Raw_Populati
 final_nufus = final_nufus.sort_values(by='Total_Raw_Population', ascending=False)
 
 # Select the 3 columns for plotting
-plot_cols = ['At-Risk Population (< 1.5 m²)', 'Safe Population (>= 1.5 m²)', 'Unanalyzed Population (No Data)']
+plot_cols = ['At-Risk Population (< 1.5 m²)', 'Safe Population (>= 1.5 m²)', 'No Data']
 plot_df = final_nufus[plot_cols]
 
 plt.figure(figsize=(16, 8))
@@ -567,11 +567,11 @@ plt.close()
 print("[SUCCESS] Fully safe districts completeness chart saved as '6_safe_districts_completeness.png'!")
 
 # ======================================================================
-# MAX VULNERABILITY RATIO: (AT-RISK + UNANALYZED) / TOTAL POPULATION
+# MAX VULNERABILITY RATIO: (AT-RISK + MISSING) / TOTAL POPULATION
 
 # Calculate the worst-case scenario risk ratio per district
 final_nufus['Max_Vulnerability_Ratio'] = (
-    (final_nufus['At-Risk Population (< 1.5 m²)'] + final_nufus['Unanalyzed Population (No Data)'])
+    (final_nufus['At-Risk Population (< 1.5 m²)'] + final_nufus['No Data'])
     / final_nufus['Total_Raw_Population']
 ) * 100
 
@@ -596,7 +596,7 @@ plt.ylim(0, 105) # Add a little breathing room at the top
 for i in ax.containers:
     ax.bar_label(i, fmt='%.1f%%', padding=3, fontsize=10, fontweight='bold')
 
-plt.title('Worst-Case Scenario: (At-Risk + Missing Data Population) / Total Population', fontsize=16, fontweight='bold', pad=15)
+plt.title('Worst-Case Scenario: (At-Risk + No Data Population) / Total Population', fontsize=16, fontweight='bold', pad=15)
 plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
 plt.ylabel('Maximum Vulnerability Ratio (%)', fontsize=12, fontweight='bold')
 plt.xticks(rotation=45, ha='right', fontsize=10)
@@ -618,32 +618,82 @@ birlesik_veri['AREA_DEFICIT'] = (birlesik_veri['TARGET_AREA'] - birlesik_veri['A
 deficit_df = birlesik_veri.groupby('ILCE')['AREA_DEFICIT'].sum().reset_index()
 deficit_df = deficit_df[deficit_df['AREA_DEFICIT'] > 0].sort_values(by='AREA_DEFICIT', ascending=False)
 
+yuzolcum_df = pd.read_csv("izmir_ilceleri_yuzolcum_m2.csv")
+yuzolcum_df = yuzolcum_df.iloc[:, [0, 2]]
+yuzolcum_df.columns = ['ILCE', 'TOTAL_DISTRICT_AREA']
+yuzolcum_df['ILCE'] = yuzolcum_df['ILCE'].apply(fix_turkish_letters)
+yuzolcum_df['TOTAL_DISTRICT_AREA'] = pd.to_numeric(yuzolcum_df['TOTAL_DISTRICT_AREA'], errors='coerce').fillna(0)
+
+deficit_df = deficit_df.merge(yuzolcum_df, on='ILCE', how='left')
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 14), gridspec_kw={'height_ratios': [1, 1]})
+sns.set_theme(style="whitegrid")
+
+# PART 1 GRAPH
+# ==========================================
+sns.barplot(data=deficit_df, x='ILCE', y='AREA_DEFICIT', palette='YlOrRd_r', hue='ILCE', legend=False, ax=ax1)
+ax1.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+
+for i in ax1.containers:
+    labels = [f"{int(v.get_height()):,}" for v in i]
+    ax1.bar_label(i, labels=labels, padding=5, fontsize=10, fontweight='bold', rotation=45)
+
+ax1.set_ylim(0, deficit_df['AREA_DEFICIT'].max() * 1.25)
+ax1.set_title('Part 1: Total Additional Assembly Area Needed (Target: 1.5 m²/person)', fontsize=16, fontweight='bold', pad=15)
+ax1.set_xlabel('') # Alt grafikte zaten yazacağı için burayı boş bırakıyoruz
+ax1.set_ylabel('Total Missing Area (m²)', fontsize=12, fontweight='bold')
+ax1.set_xticks(range(len(deficit_df['ILCE'])))
+ax1.set_xticklabels([]) # Üst grafikteki ilçe isimlerini gizleyip kalabalığı önlüyoruz
+
+# SECOND GRAPH PART 2
+# ==========================================
+sns.barplot(data=deficit_df, x='ILCE', y='TOTAL_DISTRICT_AREA', color='#1f77b4', ax=ax2)
+
+ax2.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+
+for i in ax2.containers:
+    labels = [f"{int(v.get_height()):,}" for v in i]
+    ax2.bar_label(i, labels=labels, padding=5, fontsize=10, fontweight='bold', rotation=45)
+
+ax2.set_ylim(0, deficit_df['TOTAL_DISTRICT_AREA'].max() * 1.25)
+ax2.set_title('Part 2: Total District Surface Area (m²)', fontsize=16, fontweight='bold', pad=15)
+ax2.set_xlabel('District (İlçe)', fontsize=12, fontweight='bold')
+ax2.set_ylabel('Total District Area (m²)', fontsize=12, fontweight='bold')
+ax2.set_xticks(range(len(deficit_df['ILCE'])))
+ax2.set_xticklabels(deficit_df['ILCE'], rotation=45, ha='right', fontsize=11)
+
+plt.tight_layout()
+plt.savefig("Population-Area-Charts/8_additional_area_required.png", dpi=300)
+plt.close()
+print("[SUCCESS] Dual-chart analysis saved to '8_additional_area_required.png'!")
+
+# ======================================================================
+# 9. ADDITIONAL AREA AS PERCENTAGE OF TOTAL DISTRICT AREA
+
+deficit_df['DEFICIT_PERCENTAGE'] = (deficit_df['AREA_DEFICIT'] / deficit_df['TOTAL_DISTRICT_AREA']) * 100
+perc_df = deficit_df[deficit_df['TOTAL_DISTRICT_AREA'] > 0].sort_values(by='DEFICIT_PERCENTAGE', ascending=False)
 plt.figure(figsize=(14, 8))
 sns.set_theme(style="whitegrid")
 
-# Plot total missing area (Orange-Red gradient for severity)
 ax = sns.barplot(
-    data=deficit_df,
+    data=perc_df,
     x='ILCE',
-    y='AREA_DEFICIT',
-    palette='YlOrRd_r',
+    y='DEFICIT_PERCENTAGE',
+    palette='Reds_r',
     hue='ILCE',
     legend=False
 )
 
-plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.PercentFormatter(decimals=3))
 
 for i in ax.containers:
-    labels = [f"{int(v.get_height()):,}" for v in i]
-    ax.bar_label(i, labels=labels, padding=5, fontsize=9, fontweight='bold', rotation=45)
+    ax.bar_label(i, fmt='%.3f%%', padding=5, fontsize=10, fontweight='bold', rotation=45)
 
-plt.ylim(0, deficit_df['AREA_DEFICIT'].max() * 1.20)
-plt.title('Total Additional Assembly Area Needed by District (Target: 1.5 m²/person)', fontsize=16, fontweight='bold', pad=15)
+plt.ylim(0, perc_df['DEFICIT_PERCENTAGE'].max() * 1.25)
+plt.title('Extra Need Area as Percentage of Total District Area (%)', fontsize=16, fontweight='bold', pad=15)
 plt.xlabel('District (İlçe)', fontsize=12, fontweight='bold')
-plt.ylabel('Total Missing Area (m²)', fontsize=12, fontweight='bold')
+plt.ylabel('Deficit Percentage (%)', fontsize=12, fontweight='bold')
 plt.xticks(rotation=45, ha='right', fontsize=10)
-plt.yticks(fontsize=10)
 plt.tight_layout()
-plt.savefig("Population-Area-Charts/8_additional_area_required.png", dpi=300)
+plt.savefig("Population-Area-Charts/9_deficit_percentage.png", dpi=300)
 plt.close()
-print("[SUCCESS] Additional area required chart saved to '8_additional_area_required.png'!")
+print("[SUCCESS] Percentage chart saved to '9_deficit_percentage.png'!")
