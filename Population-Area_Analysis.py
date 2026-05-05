@@ -4,6 +4,12 @@ import openpyxl
 import matplotlib.pyplot as plt
 import seaborn as sns
 import difflib
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+import geopandas as gpd
+import matplotlib.patheffects as path_effects
+from adjustText import adjust_text
+import numpy as np
 # Mute unnecessary Pandas warnings
 pd.options.mode.chained_assignment = None
 import os
@@ -697,3 +703,118 @@ plt.tight_layout()
 plt.savefig("Population-Area-Charts/9_deficit_percentage.png", dpi=300)
 plt.close()
 print("[SUCCESS] Percentage chart saved to '9_deficit_percentage.png'!")
+
+# ==================================================
+# LINEAR REGRESSION
+
+print("==================================================")
+print("STARTING LINEAR REGRESSION ANALYSIS")
+regression_df = birlesik_veri[['NUFUS', 'ALAN_M2']].dropna()
+
+# We do not take outliers because they are distracting the result.
+regression_df = regression_df[(regression_df['ALAN_M2'] <= 500000) & (regression_df['NUFUS'] > 0)]
+
+X = regression_df[['NUFUS']] # Predictor
+y = regression_df['ALAN_M2'] # Target
+
+# Model part
+model = LinearRegression()
+model.fit(X, y)
+y_pred = model.predict(X)
+r2 = r2_score(y, y_pred)
+
+print("")
+print(f"Total Neighborhoods Analyzed : {len(regression_df)} (Outliers Removed)")
+print(f"R-Squared (R2) Score         : {r2:.4f} ( {r2*100:.2f}% )")
+print("")
+if r2 < 0.5:
+    print("Severe lack of planning detected.")
+    print("Assembly areas are NOT distributed according to population density.")
+else:
+    print("Assembly areas show correlation with population.")
+
+plt.figure(figsize=(12, 8))
+sns.set_theme(style="whitegrid")
+ax = sns.scatterplot(
+    x=regression_df['NUFUS'],
+    y=regression_df['ALAN_M2'],
+    alpha=0.6,
+    s=50,
+    color='#1f77b4',
+    edgecolor='w',
+    label='Neighborhoods'
+)
+
+plt.plot(
+    regression_df['NUFUS'],
+    y_pred,
+    color='#d62728',
+    linewidth=3,
+    label=f'Linear Trend Line (R² = {r2:.3f})'
+)
+
+plt.ticklabel_format(style='plain', axis='both')
+plt.gca().xaxis.set_major_formatter(plt.matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
+plt.gca().yaxis.set_major_formatter(plt.matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
+plt.ylim(bottom=0)
+plt.xlim(left=0)
+plt.title('Urban Planning: Population vs. Existing Assembly Area Capacity', fontsize=16, fontweight='bold', pad=15)
+plt.xlabel('Neighborhood Population', fontsize=12, fontweight='bold')
+plt.ylabel('Existing Assembly Area (m²)', fontsize=12, fontweight='bold')
+
+textstr = '\n'.join((
+    r'$\mathbf{What\ Does\ This\ Mean?}$',
+    f'R² Score: {r2*100:.1f}%',
+    r'Only ' + f'{r2*100:.1f}%' + ' of the assembly area distribution',
+    r'can be explained by the population of that area.',
+    r'Conclusion: Planning is largely arbitrary.'
+))
+
+props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray')
+ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11, verticalalignment='top', bbox=props)
+plt.legend(loc='lower right', fontsize=11)
+plt.tight_layout()
+save_path = "Population-Area-Charts/10_Linear_Regression(Population-Assembly Area).png"
+plt.savefig(save_path, dpi=300)
+plt.close()
+
+print(f"Regression chart saved to '{save_path}'.")
+print("==================================================")
+print("")
+
+# ==================================================
+# MAP VISUALIZATION (INTERACTIVE HTML MAP)
+
+geojson_path = "izmir-districts.geojson"
+
+if not os.path.exists(geojson_path):
+    print(f"\n The file is not found: {geojson_path}")
+else:
+    izmir_map = gpd.read_file(geojson_path)
+
+    def fix_turkish_letters(text):
+        if pd.isna(text): return text
+        text = str(text).upper()
+        translation_table = str.maketrans("ÇĞİÖŞÜ", "CGIOSU")
+        return text.translate(translation_table).strip()
+
+    izmir_map['ILCE'] = izmir_map['adi'].apply(fix_turkish_letters)
+    mapped_data = izmir_map.merge(risk_ratio_df, on='ILCE', how='left')
+    mapped_data['Max_Vulnerability_Ratio'] = mapped_data['Max_Vulnerability_Ratio'].fillna(0)
+    mapped_data['Max_Vulnerability_Ratio'] = mapped_data['Max_Vulnerability_Ratio'].round(2)
+    m = mapped_data.explore(
+        column='Max_Vulnerability_Ratio',
+        cmap='Reds',
+        tooltip=['ILCE', 'Max_Vulnerability_Ratio'],
+        tooltip_kwds=dict(labels=True, aliases=['District: ', 'Vulnerability Ratio (%): ']),
+        legend_name='Vulnerability Ratio (%)',
+        tiles='CartoDB positron',
+        style_kwds=dict(color='black', weight=1)
+    )
+
+    os.makedirs("Population-Area-Charts", exist_ok=True)
+    save_path = "Population-Area-Charts/7b_Izmir_Interactive_Map.html"
+    m.save(save_path)
+
+    print(f"[SUCCESS] Interactive HTML Map saved to '{save_path}'")
+    print(f"[INFO] Right click -> Open In -> Explorer")
