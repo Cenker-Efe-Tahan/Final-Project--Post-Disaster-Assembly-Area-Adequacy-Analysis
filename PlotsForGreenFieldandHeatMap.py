@@ -282,21 +282,30 @@ print("   Saved: 4_ndvi_category_distribution.png")
 # ============================================================
 print("5/5 Generating LST hotspot/coolspot table...")
 
+# --- Display name cleaner (data untouched) ---
+def clean_name(name):
+    name = name.replace(" Mahallesi", "").replace(" mahallesi", "")
+    name = name.replace(" Organize Sanayi Bölgesi", " Organized Industrial Zone")
+    return name.strip()
+
+# Top 10 hottest
 top10 = (df.sort_values("LST_C", ascending=False)
            [["name", "ilce_adi", "LST_C", "NDVI", "NDBI"]]
            .head(10).reset_index(drop=True))
 top10.index = range(1, 11)
 
+# Top 10 coolest
 bottom10 = (df.sort_values("LST_C", ascending=True)
               [["name", "ilce_adi", "LST_C", "NDVI", "NDBI"]]
               .head(10).reset_index(drop=True))
-bottom10.index = range(1, 11)  # 1-10 for coolest too
+bottom10.index = range(1, 11)
 
 combined_top    = top10.copy()
 combined_bottom = bottom10.copy()
 
 for df_part in [combined_top, combined_bottom]:
     df_part.columns = ["Neighborhood", "District", "LST (°C)", "NDVI", "NDBI"]
+    df_part["Neighborhood"] = df_part["Neighborhood"].apply(clean_name)
     df_part["LST (°C)"] = df_part["LST (°C)"].round(2)
     df_part["NDVI"]     = df_part["NDVI"].round(3)
     df_part["NDBI"]     = df_part["NDBI"].round(3)
@@ -304,7 +313,7 @@ for df_part in [combined_top, combined_bottom]:
 total_hotspots = len(df[df["LST_C"] >= LST_THRESHOLD])
 
 # Narrow column widths
-col_widths = [0.36, 0.17, 0.13, 0.11, 0.11]
+col_widths = [0.24, 0.17, 0.13, 0.11, 0.11]
 
 fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(11, 8))
 fig.patch.set_facecolor("white")
@@ -381,7 +390,6 @@ plt.savefig("LST-NDVI-NDBI-Charts/5_lst_hotspot_coolspot_table.png",
             dpi=300, bbox_inches="tight", facecolor="white")
 plt.close()
 print("   Saved: 5_lst_hotspot_coolspot_table.png")
-
 
 # ============================================================
 # SUMMARY
