@@ -3,55 +3,50 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 pd.options.mode.chained_assignment = None
+
 output_dir = "ML_Random_Forest-Charts"
 os.makedirs(output_dir, exist_ok=True)
 
-
-df = pd.read_csv("output/Merged_Full_Dataset.csv")
-# Recalculate the Target Metric (Vulnerability Ratio)
-df['TARGET_AREA'] = df['NUFUS'] * 1.5
-df['AREA_DEFICIT'] = (df['TARGET_AREA'] - df['ALAN_M2']).clip(lower=0)
-df['VULNERABILITY_RATIO'] = np.where(
-    df['TARGET_AREA'] > 0,
-    (df['AREA_DEFICIT'] / df['TARGET_AREA']) * 100,
-    0
-)
-df['VULNERABILITY_RATIO'] = df['VULNERABILITY_RATIO'].clip(upper=100)
-
-os.makedirs("Merged_Data_Charts", exist_ok=True)
+# We no longer split dynamically. We load the frozen Train and Test sets for absolute fairness.
+train_df = pd.read_csv("output/Train_Dataset.csv")
+test_df = pd.read_csv("output/Test_Dataset.csv")
 
 # Feature Selection
-# Features: Environmental Satellite Data
-# Target: Urban Risk Score (Vulnerability Ratio)
 features = ['NDVI', 'NDBI', 'LST_C']
-X = df[features]
-y = df['VULNERABILITY_RATIO']
+target = 'VULNERABILITY_RATIO'
+X_train = train_df[features]
+y_train = train_df[target]
+X_test = test_df[features]
+y_test = test_df[target]
+
 print()
-print(f"Total viable neighborhoods for training: {len(df)}")
+print(f"Total viable neighborhoods for training: {len(train_df) + len(test_df)}")
 print("Features utilized: Green Cover (NDVI), Built-up Index (NDBI), Surface Temp (LST_C)")
+print(f"Loaded Pre-Split Data: {len(X_train)} Train | {len(X_test)} Test")
 
-# Train-Test Split (%70-%30)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42)
-print(f"Data successfully split: {len(X_train)} Train | {len(X_test)} Test")
-
-# Training
+# ==========================================
+# TRAINING
 rf_model = RandomForestRegressor(n_estimators=200, max_depth=10, random_state=42, n_jobs=-1)
 rf_model.fit(X_train, y_train)
 
-# Prediction
+# ==========================================
+# PREDICTION & EVALUATION
 y_pred = rf_model.predict(X_test)
 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 r2 = r2_score(y_test, y_pred)
+
 print()
 print("             MODEL PERFORMANCE REPORT             ")
 print("==================================================")
 print(f"Root Mean Square Error (RMSE) : {rmse:.2f} %")
 print(f"R-Squared (R2) Score          : {r2:.3f}")
 print("==================================================\n")
+
+# ==========================================
+# VISUALIZATIONS
 
 # Actual vs Predicted Visual
 sns.set_theme(style="whitegrid")
@@ -78,7 +73,7 @@ plt.savefig(f"{output_dir}/1_ML_Actual_vs_Predicted.png", dpi=300)
 plt.close()
 print(f"Actual vs Predicted plot saved as '{output_dir}/1_ML_Actual_vs_Predicted.png'")
 
-# Second Visual
+# Feature Importance Visual
 feature_importance = rf_model.feature_importances_ * 100
 importance_df = pd.DataFrame({
     'Feature': ['Green Cover (NDVI)', 'Built-up Index (NDBI)', 'Surface Temp (LST_C)'],
