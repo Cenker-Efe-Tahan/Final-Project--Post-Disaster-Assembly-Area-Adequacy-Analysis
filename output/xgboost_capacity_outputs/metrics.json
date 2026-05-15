@@ -1,0 +1,77 @@
+{
+  "threshold": 0.5,
+  "accuracy": 0.9827586206896551,
+  "balanced_accuracy": 0.9809337134711333,
+  "precision_risky_class": 0.9183673469387755,
+  "recall_risky_class": 0.9782608695652174,
+  "f1_risky_class": 0.9473684210526315,
+  "roc_auc": 0.9983071988595866,
+  "average_precision": 0.9912108148328272,
+  "confusion_matrix_labels": [
+    "0=Yeterli",
+    "1=Riskli/Yetersiz"
+  ],
+  "confusion_matrix": [
+    [
+      240,
+      4
+    ],
+    [
+      1,
+      45
+    ]
+  ],
+  "tn": 240,
+  "fp": 4,
+  "fn": 1,
+  "tp": 45,
+  "classification_report": {
+    "Yeterli": {
+      "precision": 0.995850622406639,
+      "recall": 0.9836065573770492,
+      "f1-score": 0.9896907216494846,
+      "support": 244.0
+    },
+    "Riskli/Yetersiz": {
+      "precision": 0.9183673469387755,
+      "recall": 0.9782608695652174,
+      "f1-score": 0.9473684210526315,
+      "support": 46.0
+    },
+    "accuracy": 0.9827586206896551,
+    "macro avg": {
+      "precision": 0.9571089846727072,
+      "recall": 0.9809337134711333,
+      "f1-score": 0.968529571351058,
+      "support": 290.0
+    },
+    "weighted avg": {
+      "precision": 0.9835601718151847,
+      "recall": 0.9827586206896551,
+      "f1-score": 0.9829775291410181,
+      "support": 290.0
+    }
+  },
+  "target_definition": "RISKLI_MI = 1 if KISI_BASI_M2 < 1.5, else 0",
+  "train_rows": 676,
+  "test_rows": 290,
+  "train_risky_count": 121,
+  "train_sufficient_count": 555,
+  "test_risky_count": 46,
+  "test_sufficient_count": 244,
+  "features_used": [
+    "NUFUS",
+    "ALAN_M2",
+    "LST_C",
+    "NDVI",
+    "NDBI",
+    "ILCE"
+  ],
+  "excluded_columns_to_prevent_target_leakage": [
+    "KISI_BASI_M2",
+    "TARGET_AREA",
+    "AREA_DEFICIT",
+    "VULNERABILITY_RATIO",
+    "RISKLI_MI"
+  ]
+}

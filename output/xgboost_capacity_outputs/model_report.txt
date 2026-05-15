@@ -1,0 +1,33 @@
+XGBoost Toplanma Alanı Yeterlilik/Risk Modeli
+========================================================
+Hedef: RISKLI_MI = 1 if KISI_BASI_M2 < 1.5, else 0
+Kullanılan feature'lar: NUFUS, ALAN_M2, LST_C, NDVI, NDBI, ILCE
+Train: 676 satır | Riskli: 121 | Yeterli: 555
+Test:  290 satır | Riskli: 46 | Yeterli: 244
+
+Test metrikleri:
+- Accuracy:          0.9828
+- Balanced Accuracy: 0.9809
+- Precision Riskli:  0.9184
+- Recall Riskli:     0.9783
+- F1 Riskli:         0.9474
+- ROC-AUC:           0.9983
+- Avg Precision:     0.9912
+
+Confusion Matrix [[TN, FP], [FN, TP]]:
+[[240, 4], [1, 45]]
+
+En önemli 10 feature:
+        feature  importance
+           NDVI    0.261263
+          NUFUS    0.124021
+   ILCE_BORNOVA    0.117099
+        ALAN_M2    0.109460
+   ILCE_BERGAMA    0.061950
+ILCE_KARABAGLAR    0.059636
+     ILCE_KIRAZ    0.048822
+    ILCE_ODEMIS    0.043647
+      ILCE_TIRE    0.042878
+     ILCE_CIGLI    0.035192
+
+Not: KISI_BASI_M2, TARGET_AREA, AREA_DEFICIT ve VULNERABILITY_RATIO hedefi doğrudan türettiği için feature olarak kullanılmadı.
