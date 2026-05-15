@@ -792,16 +792,19 @@ if not os.path.exists(geojson_path):
 else:
     izmir_map = gpd.read_file(geojson_path)
 
+
     def fix_turkish_letters(text):
         if pd.isna(text): return text
         text = str(text).upper()
         translation_table = str.maketrans("ÇĞİÖŞÜ", "CGIOSU")
         return text.translate(translation_table).strip()
 
+
     izmir_map['ILCE'] = izmir_map['adi'].apply(fix_turkish_letters)
     mapped_data = izmir_map.merge(risk_ratio_df, on='ILCE', how='left')
     mapped_data['Max_Vulnerability_Ratio'] = mapped_data['Max_Vulnerability_Ratio'].fillna(0)
     mapped_data['Max_Vulnerability_Ratio'] = mapped_data['Max_Vulnerability_Ratio'].round(2)
+
     m = mapped_data.explore(
         column='Max_Vulnerability_Ratio',
         cmap='Reds',
@@ -816,5 +819,113 @@ else:
     save_path = "Population-Area-Charts/7b_Izmir_Interactive_Map.html"
     m.save(save_path)
 
-    print(f"[SUCCESS] Interactive HTML Map saved to '{save_path}'")
+    search_df = birlesik_veri[['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2']].copy()
+    if 'AFAD_MAHALLE' in birlesik_veri.columns:
+        search_df['TOPLANMA_ALANI_ISMI'] = birlesik_veri['AFAD_MAHALLE']
+    else:
+        search_df['TOPLANMA_ALANI_ISMI'] = "Bilinmiyor"
+
+    json_data = search_df.to_json(orient='records')
+
+    html_injection = f"""
+    <style>
+      #custom-search-box {{
+        position: absolute;
+        top: 20px;
+        left: 60px;
+        z-index: 9999;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        width: 320px;
+        font-family: Arial, sans-serif;
+      }}
+      #custom-search-input {{
+        width: 100%; padding: 8px; box-sizing: border-box;
+        border: 1px solid #ccc; border-radius: 4px; font-size: 14px;
+      }}
+      #custom-suggestions {{
+        list-style: none; padding: 0; margin: 0;
+        max-height: 150px; overflow-y: auto; background: white;
+      }}
+      #custom-suggestions li {{
+        padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 14px;
+      }}
+      #custom-suggestions li:hover {{ background: #f0f0f0; color: #d62728; font-weight: bold; }}
+      #custom-info-panel {{
+        display: none; margin-top: 15px; padding-top: 10px; 
+        border-top: 1px solid #ccc; font-size: 14px; line-height: 1.6;
+      }}
+      .status-safe {{ color: #2ca02c; font-weight: bold; font-size: 15px; }}
+      .status-risk {{ color: #d62728; font-weight: bold; font-size: 15px; }}
+      .table-area {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }}
+      .table-area th, .table-area td {{ border: 1px solid #ddd; padding: 6px; text-align: left; }}
+      .table-area th {{ background-color: #f2f2f2; font-weight: bold; }}
+    </style>
+
+    <div id="custom-search-box">
+      <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; color: #333;">Neighborhood Risk Interrogation</h4>
+      <input type="text" id="custom-search-input" placeholder="Search a Neighbourhood">
+      <ul id="custom-suggestions"></ul>
+      <div id="custom-info-panel"></div>
+    </div>
+
+    <script>
+      var neighborhoodData = {json_data};
+      var inputField = document.getElementById('custom-search-input');
+      var suggBox = document.getElementById('custom-suggestions');
+      var infoPanel = document.getElementById('custom-info-panel');
+
+      inputField.addEventListener('input', function() {{
+          var val = this.value.toUpperCase();
+          suggBox.innerHTML = '';
+          infoPanel.style.display = 'none';
+          if (!val) return;
+
+          var matches = neighborhoodData.filter(function(d) {{
+              return d.MAHALLE.includes(val) || d.ILCE.includes(val);
+          }});
+
+          matches.forEach(function(d) {{
+              var li = document.createElement('li');
+              li.innerHTML = "<b>" + d.MAHALLE + "</b> <span style='font-size:12px; color:gray;'>(" + d.ILCE + ")</span>";
+              li.onclick = function() {{
+                  inputField.value = d.MAHALLE;
+                  suggBox.innerHTML = '';
+                  showInfo(d);
+              }};
+              suggBox.appendChild(li);
+          }});
+      }});
+
+      function showInfo(d) {{
+          var isSafe = d.KISI_BASI_M2 >= 1.5;
+          var statusHtml = isSafe ? "<span class='status-safe'>✔ Safe</span>" : "<span class='status-risk'>✖ Not Safe</span>";
+
+          var html = "<b>District:</b> " + d.ILCE + "<br/>";
+          html += "<b>Neighbourhood:</b> " + d.MAHALLE + "<br/>";
+          html += "<b>Population:</b> " + d.NUFUS.toLocaleString('tr-TR') + " kişi<br/>";
+          html += "<b>Area as m²:</b> " + d.ALAN_M2.toLocaleString('tr-TR') + " m²<br/>";
+          html += "<b>Area per Person:</b> " + d.KISI_BASI_M2 + " m²<br/>";
+          html += "<b>Status:</b> " + statusHtml + "<br/>";
+
+          html += "<table class='table-area'><tr><th>Registered Assembly Area Match</th></tr>";
+          html += "<tr><td>" + d.TOPLANMA_ALANI_ISMI + "</td></tr></table>";
+
+          infoPanel.innerHTML = html;
+          infoPanel.style.display = 'block';
+      }}
+    </script>
+    """
+
+    with open(save_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+
+    html_content = html_content.replace('<body>', f'<body>\n{html_injection}')
+
+    with open(save_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+
+    print(f"[SUCCESS] Interactive HTML Map with Search Engine saved to '{save_path}'")
     print(f"[INFO] Right click -> Open In -> Explorer")
