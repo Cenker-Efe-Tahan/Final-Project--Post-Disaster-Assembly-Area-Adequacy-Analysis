@@ -4,27 +4,40 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_percentage_error
+from sklearn.preprocessing import LabelEncoder
 pd.options.mode.chained_assignment = None
 
 output_dir = "ML_Random_Forest-Charts"
 os.makedirs(output_dir, exist_ok=True)
 
-# We no longer split dynamically. We load the frozen Train and Test sets for absolute fairness.
+# Load data
 train_df = pd.read_csv("output/Train_Dataset.csv")
 test_df = pd.read_csv("output/Test_Dataset.csv")
 
-# Feature Selection
-features = ['NDVI', 'NDBI', 'LST_C']
-target = 'VULNERABILITY_RATIO'
-X_train = train_df[features]
+# Feature Selection - Dropped 'MAHALLE' to prevent overfitting
+features = ['ILCE', 'NUFUS', 'LST_C', 'NDVI', 'NDBI']
+target = 'ALAN_M2'
+
+# Encode categorical variables for Random Forest
+le_ilce = LabelEncoder()
+
+# Fit on combined data to ensure all unique classes are covered
+all_ilce = pd.concat([train_df['ILCE'], test_df['ILCE']])
+le_ilce.fit(all_ilce)
+
+train_df['ILCE_encoded'] = le_ilce.transform(train_df['ILCE'])
+test_df['ILCE_encoded'] = le_ilce.transform(test_df['ILCE'])
+
+features_encoded = ['ILCE_encoded', 'NUFUS', 'LST_C', 'NDVI', 'NDBI']
+
+X_train = train_df[features_encoded]
 y_train = train_df[target]
-X_test = test_df[features]
+X_test = test_df[features_encoded]
 y_test = test_df[target]
 
-print()
 print(f"Total viable neighborhoods for training: {len(train_df) + len(test_df)}")
-print("Features utilized: Green Cover (NDVI), Built-up Index (NDBI), Surface Temp (LST_C)")
+print("Features utilized:", ", ".join(features))
 print(f"Loaded Pre-Split Data: {len(X_train)} Train | {len(X_test)} Test")
 
 # ==========================================
@@ -37,18 +50,19 @@ rf_model.fit(X_train, y_train)
 y_pred = rf_model.predict(X_test)
 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 r2 = r2_score(y_test, y_pred)
+mape = mean_absolute_percentage_error(y_test, y_pred)
 
-print()
-print("             MODEL PERFORMANCE REPORT             ")
+print("\n             MODEL PERFORMANCE REPORT             ")
 print("==================================================")
-print(f"Root Mean Square Error (RMSE) : {rmse:.2f} %")
+print(f"Root Mean Square Error (RMSE) : {rmse:.2f} m2")
+print(f"Mean Absolute Percentage Error(MAPE): {mape:.2%}")
 print(f"R-Squared (R2) Score          : {r2:.3f}")
 print("==================================================\n")
 
 # ==========================================
 # VISUALIZATIONS
 
-# Actual vs Predicted Visual
+# 1. Actual vs Predicted Visual
 sns.set_theme(style="whitegrid")
 plt.figure(figsize=(10, 6))
 
@@ -64,19 +78,19 @@ sns.scatterplot(
 min_val = min(y_test.min(), y_pred.min())
 max_val = max(y_test.max(), y_pred.max())
 plt.plot([min_val, max_val], [min_val, max_val], color='#d62728', linestyle='--', linewidth=2, label='Perfect Prediction (Ideal)')
-plt.title('Machine Learning Performance: Actual vs. Predicted Risk', fontsize=15, fontweight='bold', pad=15)
-plt.xlabel('Actual Vulnerability Ratio (%)', fontsize=12, fontweight='bold')
-plt.ylabel('Predicted Vulnerability Ratio (%)', fontsize=12, fontweight='bold')
+plt.title('Machine Learning Performance: Actual vs. Predicted Area', fontsize=15, fontweight='bold', pad=15)
+plt.xlabel('Actual Area (m2)', fontsize=12, fontweight='bold')
+plt.ylabel('Predicted Area (m2)', fontsize=12, fontweight='bold')
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"{output_dir}/1_ML_Actual_vs_Predicted.png", dpi=300)
 plt.close()
 print(f"Actual vs Predicted plot saved as '{output_dir}/1_ML_Actual_vs_Predicted.png'")
 
-# Feature Importance Visual
+# 2. Feature Importance Visual
 feature_importance = rf_model.feature_importances_ * 100
 importance_df = pd.DataFrame({
-    'Feature': ['Green Cover (NDVI)', 'Built-up Index (NDBI)', 'Surface Temp (LST_C)'],
+    'Feature': features,
     'Importance (%)': feature_importance
 }).sort_values(by='Importance (%)', ascending=False)
 
@@ -96,7 +110,7 @@ for p in ax.patches:
 
 plt.xlim(0, 100)
 plt.xlabel('Impact Weight on Model Decisions (%)', fontsize=12, fontweight='bold')
-plt.ylabel('Environmental Features', fontsize=12, fontweight='bold')
+plt.ylabel('Features', fontsize=12, fontweight='bold')
 plt.tight_layout()
 plt.savefig(f"{output_dir}/2_ML_Feature_Importance.png", dpi=300)
 plt.close()

@@ -801,15 +801,27 @@ else:
 
 
     izmir_map['ILCE'] = izmir_map['adi'].apply(fix_turkish_letters)
+
+    # Total Assembly Area Counts based on raw data added
+    try:
+        ilce_counts = veri.groupby('ILCE').size().reset_index(name='Total_Assembly_Areas')
+        mahalle_counts = veri.groupby(['ILCE', 'MAHALLE']).size().reset_index(name='ASSEMBLY_AREA_COUNT')
+    except NameError:
+        ilce_counts = birlesik_veri.groupby('ILCE').size().reset_index(name='Total_Assembly_Areas')
+        mahalle_counts = birlesik_veri.groupby(['ILCE', 'MAHALLE']).size().reset_index(name='ASSEMBLY_AREA_COUNT')
+
     mapped_data = izmir_map.merge(risk_ratio_df, on='ILCE', how='left')
+    mapped_data = mapped_data.merge(ilce_counts, on='ILCE', how='left')
+    mapped_data['Total_Assembly_Areas'] = mapped_data['Total_Assembly_Areas'].fillna(0).astype(int)
+
     mapped_data['Max_Vulnerability_Ratio'] = mapped_data['Max_Vulnerability_Ratio'].fillna(0)
     mapped_data['Max_Vulnerability_Ratio'] = mapped_data['Max_Vulnerability_Ratio'].round(2)
 
     m = mapped_data.explore(
         column='Max_Vulnerability_Ratio',
         cmap='Reds',
-        tooltip=['ILCE', 'Max_Vulnerability_Ratio'],
-        tooltip_kwds=dict(labels=True, aliases=['District: ', 'Vulnerability Ratio (%): ']),
+        tooltip=['ILCE', 'Max_Vulnerability_Ratio', 'Total_Assembly_Areas'],
+        tooltip_kwds=dict(labels=True, aliases=['District: ', 'Vulnerability Ratio (%): ', 'Total Assembly Areas: ']),
         legend_name='Vulnerability Ratio (%)',
         tiles='CartoDB positron',
         style_kwds=dict(color='black', weight=1)
@@ -819,11 +831,61 @@ else:
     save_path = "Population-Area-Charts/7b_Izmir_Interactive_Map.html"
     m.save(save_path)
 
+    # Mahalleler.geojson
+    mahalleler_path = "izmir-mahalleler.geojson"
+    if os.path.exists(mahalleler_path):
+        mahalleler_gdf = gpd.read_file(mahalleler_path)
+        mahalleler_gdf = mahalleler_gdf[mahalleler_gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+        mahalleler_gdf = mahalleler_gdf.to_crs(izmir_map.crs)
+        mahalleler_centroids = mahalleler_gdf.copy()
+        mahalleler_centroids = mahalleler_centroids.to_crs(epsg=3857)
+        mahalleler_centroids.geometry = mahalleler_centroids.geometry.centroid
+        mahalleler_centroids = mahalleler_centroids.to_crs(izmir_map.crs)
+
+        mahalle_ilce_join = gpd.sjoin(mahalleler_centroids, izmir_map[['ILCE', 'geometry']], how='left',
+                                      predicate='intersects')
+        mahalle_ilce_join = mahalle_ilce_join[~mahalle_ilce_join.index.duplicated(keep='first')]
+        mahalleler_gdf['ILCE'] = mahalle_ilce_join['ILCE']
+
+
+        def clean_mahalle(name):
+            if pd.isna(name): return ""
+            name = str(name).replace(" Mahallesi", "").replace(" Mah.", "").replace(" MAH.", "").replace(" MAHALLESI",
+                                                                                                         "")
+            return fix_turkish_letters(name).replace(' ', '')
+
+
+        mahalleler_gdf['MAHALLE'] = mahalleler_gdf['name'].apply(clean_mahalle)
+        mahalleler_gdf = mahalleler_gdf.merge(birlesik_veri, on=['ILCE', 'MAHALLE'], how='left')
+
+        # Merge Assembly Area Count for Neighbourhoods
+        mahalleler_gdf = mahalleler_gdf.merge(mahalle_counts, on=['ILCE', 'MAHALLE'], how='left')
+        mahalleler_gdf['ASSEMBLY_AREA_COUNT'] = mahalleler_gdf['ASSEMBLY_AREA_COUNT'].fillna(0).astype(int)
+
+        columns_to_keep = ['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2', 'geometry', 'ASSEMBLY_AREA_COUNT']
+        if 'AFAD_MAHALLE' in birlesik_veri.columns:
+            mahalleler_gdf['TOPLANMA_ALANI_ISMI'] = mahalleler_gdf['AFAD_MAHALLE']
+        else:
+            mahalleler_gdf['TOPLANMA_ALANI_ISMI'] = "Not Known"
+
+        columns_to_keep.append('TOPLANMA_ALANI_ISMI')
+
+        mahalleler_gdf = mahalleler_gdf[mahalleler_gdf.geometry.notnull()]
+        mahalleler_json_str = mahalleler_gdf[columns_to_keep].to_json()
+    else:
+        print(f"[WARNING] {mahalleler_path} bulunamadı. Mahalle katmanı eklenemedi.")
+        mahalleler_json_str = "{}"
+
     search_df = birlesik_veri[['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2']].copy()
+
+    # Merge Assembly Area Count into Search Engine Data
+    search_df = search_df.merge(mahalle_counts, on=['ILCE', 'MAHALLE'], how='left')
+    search_df['ASSEMBLY_AREA_COUNT'] = search_df['ASSEMBLY_AREA_COUNT'].fillna(0).astype(int)
+
     if 'AFAD_MAHALLE' in birlesik_veri.columns:
         search_df['TOPLANMA_ALANI_ISMI'] = birlesik_veri['AFAD_MAHALLE']
     else:
-        search_df['TOPLANMA_ALANI_ISMI'] = "Bilinmiyor"
+        search_df['TOPLANMA_ALANI_ISMI'] = "Not Known"
 
     json_data = search_df.to_json(orient='records')
 
@@ -873,6 +935,8 @@ else:
 
     <script>
       var neighborhoodData = {json_data};
+      var mahalleGeoJsonData = {mahalleler_json_str}; 
+
       var inputField = document.getElementById('custom-search-input');
       var suggBox = document.getElementById('custom-suggestions');
       var infoPanel = document.getElementById('custom-info-panel');
@@ -903,19 +967,115 @@ else:
           var isSafe = d.KISI_BASI_M2 >= 1.5;
           var statusHtml = isSafe ? "<span class='status-safe'>✔ Safe</span>" : "<span class='status-risk'>✖ Not Safe</span>";
 
+          if (d.KISI_BASI_M2 === null || d.KISI_BASI_M2 === undefined) {{
+              statusHtml = "<span style='color:gray; font-weight:bold;'>Data Not Available</span>";
+          }}
+
           var html = "<b>District:</b> " + d.ILCE + "<br/>";
           html += "<b>Neighbourhood:</b> " + d.MAHALLE + "<br/>";
-          html += "<b>Population:</b> " + d.NUFUS.toLocaleString('tr-TR') + " kişi<br/>";
-          html += "<b>Area as m²:</b> " + d.ALAN_M2.toLocaleString('tr-TR') + " m²<br/>";
-          html += "<b>Area per Person:</b> " + d.KISI_BASI_M2 + " m²<br/>";
+          html += "<b>Population:</b> " + (d.NUFUS ? d.NUFUS.toLocaleString('en-US') + " people" : "N/A") + "<br/>";
+          html += "<b>Area as m²:</b> " + (d.ALAN_M2 ? d.ALAN_M2.toLocaleString('en-US') : "N/A") + " m²<br/>";
+          html += "<b>Area per Person:</b> " + (d.KISI_BASI_M2 ? d.KISI_BASI_M2 : "N/A") + " m²<br/>";
+          html += "<b>Total Assembly Areas:</b> " + (d.ASSEMBLY_AREA_COUNT || 0) + "<br/>";
           html += "<b>Status:</b> " + statusHtml + "<br/>";
 
           html += "<table class='table-area'><tr><th>Registered Assembly Area Match</th></tr>";
-          html += "<tr><td>" + d.TOPLANMA_ALANI_ISMI + "</td></tr></table>";
+          html += "<tr><td>" + (d.TOPLANMA_ALANI_ISMI || "Not Known") + "</td></tr></table>";
 
           infoPanel.innerHTML = html;
           infoPanel.style.display = 'block';
       }}
+
+
+      window.addEventListener('load', function() {{
+          var mapObj = null;
+
+          for (var key in window) {{
+              if (window[key] && window[key].fitBounds && window[key].eachLayer) {{
+                  mapObj = window[key];
+                  break;
+              }}
+          }}
+
+          if (!mapObj) {{
+              console.error("[ERROR] Leaflet harita objesi bulunamadı!");
+              return;
+          }}
+          console.log("[SUCCESS]");
+
+          var neighborhoodLayerGroup = null;
+
+          mapObj.eachLayer(function(layer) {{
+              if (layer.feature && layer.feature.properties && layer.feature.properties.ILCE) {{
+                  var clickedIlce = layer.feature.properties.ILCE.toString().trim();
+
+                  layer.on('click', function(e) {{
+                      console.log("[CLICKED] District detected: " + clickedIlce);
+
+                      mapObj.fitBounds(e.target.getBounds());
+
+                      if (neighborhoodLayerGroup) {{
+                          mapObj.removeLayer(neighborhoodLayerGroup);
+                      }}
+
+                      neighborhoodLayerGroup = L.geoJSON(mahalleGeoJsonData, {{
+                          filter: function(feature) {{
+                              if (!feature.properties || !feature.properties.ILCE) return false;
+                              return feature.properties.ILCE.toString().trim().toUpperCase() === clickedIlce.toUpperCase();
+                          }},
+                          style: function(feature) {{
+                              var kisiBasi = feature.properties.KISI_BASI_M2;
+                              var fillColor = '#808080';
+                              if (kisiBasi !== null && kisiBasi !== undefined && !isNaN(kisiBasi)) {{
+                                  fillColor = kisiBasi >= 1.5 ? '#2ca02c' : '#d62728'; 
+                              }}
+                              return {{
+                                  color: '#ffffff',
+                                  weight: 1.5,
+                                  fillColor: fillColor,
+                                  fillOpacity: 0.65
+                              }};
+                          }},
+                          onEachFeature: function(feature, subLayer) {{
+                              var props = feature.properties;
+                              var isSafe = props.KISI_BASI_M2 >= 1.5;
+                              var statusHtml = "<span style='color:gray; font-weight:bold;'>Data Not Available</span>";
+
+                              if (props.KISI_BASI_M2 !== null && props.KISI_BASI_M2 !== undefined) {{
+                                  statusHtml = isSafe ? "<span class='status-safe'>✔ Safe</span>" : "<span class='status-risk'>✖ Not Safe</span>";
+                              }}
+
+                              var tooltipHtml = "<div style='font-size: 13px; line-height: 1.5;'>";
+                              tooltipHtml += "<b>Neighbourhood:</b> " + props.MAHALLE + "<br/>";
+                              tooltipHtml += "<b>District:</b> " + props.ILCE + "<br/>";
+                              if (props.NUFUS) tooltipHtml += "<b>Population:</b> " + props.NUFUS.toLocaleString('en-US') + " people<br/>";
+                              if (props.ALAN_M2) tooltipHtml += "<b>Area:</b> " + props.ALAN_M2.toLocaleString('en-US') + " m²<br/>";
+                              if (props.KISI_BASI_M2) tooltipHtml += "<b>Area per Person:</b> " + props.KISI_BASI_M2 + " m²<br/>";
+                              tooltipHtml += "<b>Total Assembly Areas:</b> " + (props.ASSEMBLY_AREA_COUNT || 0) + "<br/>";
+                              tooltipHtml += "<b>Status:</b> " + statusHtml + "</div>";
+
+                              subLayer.bindTooltip(tooltipHtml, {{sticky: true}}); 
+                              subLayer.on('click', function(evt) {{
+                                  L.DomEvent.stopPropagation(evt); 
+                                  var d_obj = {{
+                                      MAHALLE: props.MAHALLE,
+                                      ILCE: props.ILCE,
+                                      NUFUS: props.NUFUS,
+                                      ALAN_M2: props.ALAN_M2,
+                                      KISI_BASI_M2: props.KISI_BASI_M2,
+                                      TOPLANMA_ALANI_ISMI: props.TOPLANMA_ALANI_ISMI,
+                                      ASSEMBLY_AREA_COUNT: props.ASSEMBLY_AREA_COUNT
+                                  }};
+                                  inputField.value = props.MAHALLE;
+                                  suggBox.innerHTML = '';
+                                  showInfo(d_obj);
+                              }});
+                          }}
+                      }}).addTo(mapObj);
+                  }});
+              }}
+          }});
+      }});
     </script>
     """
 
@@ -929,3 +1089,4 @@ else:
 
     print(f"[SUCCESS] Interactive HTML Map with Search Engine saved to '{save_path}'")
     print(f"[INFO] Right click -> Open In -> Explorer")
+# ==================================================
