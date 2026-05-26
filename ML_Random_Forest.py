@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_percentage_error
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
 pd.options.mode.chained_assignment = None
 
@@ -17,7 +17,7 @@ test_df = pd.read_csv("output/Test_Dataset.csv")
 
 # Feature Selection - Dropped 'MAHALLE' to prevent overfitting
 features = ['ILCE', 'NUFUS', 'LST_C', 'NDVI', 'NDBI']
-target = 'ALAN_M2'
+target = 'AREA_CATEGORY'
 
 # Encode categorical variables for Random Forest
 le_ilce = LabelEncoder()
@@ -41,51 +41,41 @@ print("Features utilized:", ", ".join(features))
 print(f"Loaded Pre-Split Data: {len(X_train)} Train | {len(X_test)} Test")
 
 # ==========================================
-# TRAINING
-rf_model = RandomForestRegressor(n_estimators=200, max_depth=10, random_state=42, n_jobs=-1)
+# TRAINING (CLASSIFICATION)
+rf_model = RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42, n_jobs=-1, class_weight='balanced')
 rf_model.fit(X_train, y_train)
 
 # ==========================================
 # PREDICTION & EVALUATION
 y_pred = rf_model.predict(X_test)
-rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-r2 = r2_score(y_test, y_pred)
-mape = mean_absolute_percentage_error(y_test, y_pred)
+
+accuracy = accuracy_score(y_test, y_pred)
+report = classification_report(y_test, y_pred)
 
 print("\n             MODEL PERFORMANCE REPORT             ")
 print("==================================================")
-print(f"Root Mean Square Error (RMSE) : {rmse:.2f} m2")
-print(f"Mean Absolute Percentage Error(MAPE): {mape:.2%}")
-print(f"R-Squared (R2) Score          : {r2:.3f}")
+print(f"Overall Accuracy : {accuracy:.2%}")
+print("================================================== \n")
+print(report)
 print("==================================================\n")
 
 # ==========================================
 # VISUALIZATIONS
 
-# 1. Actual vs Predicted Visual
-sns.set_theme(style="whitegrid")
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(10, 8))
+cm = confusion_matrix(y_test, y_pred, labels=rf_model.classes_)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=rf_model.classes_,
+            yticklabels=rf_model.classes_)
 
-sns.scatterplot(
-    x=y_test,
-    y=y_pred,
-    alpha=0.6,
-    s=60,
-    color='#1f77b4',
-    edgecolor='w'
-)
-
-min_val = min(y_test.min(), y_pred.min())
-max_val = max(y_test.max(), y_pred.max())
-plt.plot([min_val, max_val], [min_val, max_val], color='#d62728', linestyle='--', linewidth=2, label='Perfect Prediction (Ideal)')
-plt.title('Machine Learning Performance: Actual vs. Predicted Area', fontsize=15, fontweight='bold', pad=15)
-plt.xlabel('Actual Area (m2)', fontsize=12, fontweight='bold')
-plt.ylabel('Predicted Area (m2)', fontsize=12, fontweight='bold')
-plt.legend()
+plt.title('Machine Learning Performance: Confusion Matrix', fontsize=15, fontweight='bold', pad=15)
+plt.xlabel('Predicted Category', fontsize=12, fontweight='bold')
+plt.ylabel('Actual Category', fontsize=12, fontweight='bold')
+plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
-plt.savefig(f"{output_dir}/1_ML_Actual_vs_Predicted.png", dpi=300)
+plt.savefig(f"{output_dir}/1_ML_Confusion_Matrix.png", dpi=300)
 plt.close()
-print(f"Actual vs Predicted plot saved as '{output_dir}/1_ML_Actual_vs_Predicted.png'")
+print(f"Confusion Matrix plot saved as '{output_dir}/1_ML_Confusion_Matrix.png'")
 
 # 2. Feature Importance Visual
 feature_importance = rf_model.feature_importances_ * 100
