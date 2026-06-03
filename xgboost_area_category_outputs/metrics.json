@@ -1,0 +1,76 @@
+{
+  "accuracy": 0.5275862068965518,
+  "target": "AREA_CATEGORY",
+  "features_utilized": [
+    "ILCE",
+    "NUFUS",
+    "LST_C",
+    "NDVI",
+    "NDBI"
+  ],
+  "encoded_features_used_by_model": [
+    "ILCE_encoded",
+    "NUFUS",
+    "LST_C",
+    "NDVI",
+    "NDBI"
+  ],
+  "train_rows": 676,
+  "test_rows": 290,
+  "total_viable_neighborhoods": 966,
+  "training_file": "Train_Dataset.csv",
+  "test_file": "Test_Dataset.csv",
+  "class_labels": [
+    "1_Too_Small_Capacity",
+    "2_Small_Capacity",
+    "3_Average_Capacity",
+    "4_Big_Capacity",
+    "5_Too_Big_Capacity"
+  ],
+  "class_distribution_train": {
+    "1_Too_Small_Capacity": 126,
+    "2_Small_Capacity": 290,
+    "3_Average_Capacity": 135,
+    "4_Big_Capacity": 101,
+    "5_Too_Big_Capacity": 24
+  },
+  "class_distribution_test": {
+    "1_Too_Small_Capacity": 56,
+    "2_Small_Capacity": 106,
+    "3_Average_Capacity": 73,
+    "4_Big_Capacity": 40,
+    "5_Too_Big_Capacity": 15
+  },
+  "ilce_encoder_classes": [
+    "ALIAGA",
+    "BALCOVA",
+    "BAYINDIR",
+    "BAYRAKLI",
+    "BERGAMA",
+    "BEYDAG",
+    "BORNOVA",
+    "BUCA",
+    "CESME",
+    "CIGLI",
+    "DIKILI",
+    "FOCA",
+    "GAZIEMIR",
+    "GUZELBAHCE",
+    "KARABAGLAR",
+    "KARABURUN",
+    "KARSIYAKA",
+    "KEMALPASA",
+    "KINIK",
+    "KIRAZ",
+    "KONAK",
+    "MENDERES",
+    "MENEMEN",
+    "NARLIDERE",
+    "ODEMIS",
+    "SEFERIHISAR",
+    "SELCUK",
+    "TIRE",
+    "TORBALI",
+    "URLA"
+  ]
+}

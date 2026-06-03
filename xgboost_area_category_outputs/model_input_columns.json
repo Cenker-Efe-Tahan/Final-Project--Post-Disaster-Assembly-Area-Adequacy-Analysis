@@ -1,0 +1,16 @@
+{
+  "X_train_columns": [
+    "ILCE_encoded",
+    "NUFUS",
+    "LST_C",
+    "NDVI",
+    "NDBI"
+  ],
+  "X_test_columns": [
+    "ILCE_encoded",
+    "NUFUS",
+    "LST_C",
+    "NDVI",
+    "NDBI"
+  ]
+}

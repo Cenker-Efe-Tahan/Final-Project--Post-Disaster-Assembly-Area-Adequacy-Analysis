@@ -1,0 +1,50 @@
+XGBoost AREA_CATEGORY Classification Model
+================================================================
+Target: AREA_CATEGORY
+Training file: Train_Dataset.csv
+Test file:     Test_Dataset.csv
+Total viable neighborhoods for training: 966
+Features utilized: ILCE, NUFUS, LST_C, NDVI, NDBI
+Exact model input columns: ILCE_encoded, NUFUS, LST_C, NDVI, NDBI
+Loaded pre-split data: 676 Train | 290 Test
+
+MODEL PERFORMANCE REPORT
+================================================================
+Overall Accuracy : 52.76%
+================================================================
+
+                      precision    recall  f1-score   support
+
+1_Too_Small_Capacity       0.56      0.64      0.60        56
+    2_Small_Capacity       0.62      0.61      0.62       106
+  3_Average_Capacity       0.46      0.36      0.40        73
+      4_Big_Capacity       0.43      0.53      0.47        40
+  5_Too_Big_Capacity       0.31      0.33      0.32        15
+
+            accuracy                           0.53       290
+           macro avg       0.48      0.49      0.48       290
+        weighted avg       0.53      0.53      0.52       290
+
+================================================================
+
+Confusion matrix:
+                               Predicted - 1_Too_Small_Capacity  Predicted - 2_Small_Capacity  Predicted - 3_Average_Capacity  Predicted - 4_Big_Capacity  Predicted - 5_Too_Big_Capacity
+Actual - 1_Too_Small_Capacity                                36                            17                               2                           0                               1
+Actual - 2_Small_Capacity                                    20                            65                              14                           6                               1
+Actual - 3_Average_Capacity                                   4                            20                              26                          20                               3
+Actual - 4_Big_Capacity                                       2                             1                              10                          21                               6
+Actual - 5_Too_Big_Capacity                                   2                             2                               4                           2                               5
+
+Feature importance:
+Feature  Importance (%)
+  NUFUS       36.334763
+   NDVI       20.012478
+   ILCE       15.160927
+   NDBI       14.991084
+  LST_C       13.500749
+
+Findings:
+- The model input matrix contains exactly five columns: ILCE_encoded, NUFUS, LST_C, NDVI, and NDBI.
+- ILCE is encoded once with LabelEncoder fitted on combined train and test ILCE values, matching the reference code.
+- MAHALLE is used only as an identifier in the prediction export and is not included in X_train or X_test.
+- Parenthesized upload copy suffixes such as Train_Dataset(3).csv or Test_Dataset(3).csv are ignored.
