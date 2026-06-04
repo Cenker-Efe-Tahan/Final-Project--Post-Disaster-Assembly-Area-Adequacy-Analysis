@@ -784,6 +784,7 @@ print("")
 
 # ==================================================
 # MAP VISUALIZATION (INTERACTIVE HTML MAP)
+import numpy as np
 
 geojson_path = "izmir-districts.geojson"
 
@@ -862,7 +863,29 @@ else:
         mahalleler_gdf = mahalleler_gdf.merge(mahalle_counts, on=['ILCE', 'MAHALLE'], how='left')
         mahalleler_gdf['ASSEMBLY_AREA_COUNT'] = mahalleler_gdf['ASSEMBLY_AREA_COUNT'].fillna(0).astype(int)
 
-        columns_to_keep = ['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2', 'geometry', 'ASSEMBLY_AREA_COUNT']
+        # (LST, NDVI, NDBI)
+        try:
+            env_df = pd.read_csv("output/Merged_Full_Dataset.csv")[
+                ['ILCE', 'MAHALLE', 'LST_C', 'NDVI', 'NDBI']].drop_duplicates()
+            env_df['ILCE'] = env_df['ILCE'].apply(fix_turkish_letters)
+            env_df['MAHALLE'] = env_df['MAHALLE'].apply(clean_mahalle)
+            mahalleler_gdf = mahalleler_gdf.merge(env_df, on=['ILCE', 'MAHALLE'], how='left')
+        except FileNotFoundError:
+            print("[WARNING] Merged_Full_Dataset.csv could not found.")
+            mahalleler_gdf['LST_C'] = np.nan
+            mahalleler_gdf['NDVI'] = np.nan
+            mahalleler_gdf['NDBI'] = np.nan
+        # ---------------------------------------------------------
+
+        mahalleler_gdf['ASSEMBLY_AREA_COUNT'] = np.where(
+            (mahalleler_gdf['ASSEMBLY_AREA_COUNT'] == 0) & (mahalleler_gdf['ALAN_M2'] > 0),
+            1,
+            mahalleler_gdf['ASSEMBLY_AREA_COUNT']
+        )
+
+        columns_to_keep = ['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2', 'geometry', 'ASSEMBLY_AREA_COUNT',
+                           'LST_C', 'NDVI', 'NDBI']
+
         if 'AFAD_MAHALLE' in birlesik_veri.columns:
             mahalleler_gdf['TOPLANMA_ALANI_ISMI'] = mahalleler_gdf['AFAD_MAHALLE']
         else:
@@ -878,9 +901,17 @@ else:
 
     search_df = birlesik_veri[['ILCE', 'MAHALLE', 'NUFUS', 'ALAN_M2', 'KISI_BASI_M2']].copy()
 
-    # Merge Assembly Area Count into Search Engine Data
     search_df = search_df.merge(mahalle_counts, on=['ILCE', 'MAHALLE'], how='left')
     search_df['ASSEMBLY_AREA_COUNT'] = search_df['ASSEMBLY_AREA_COUNT'].fillna(0).astype(int)
+
+    if 'env_df' in locals():
+        search_df = search_df.merge(env_df, on=['ILCE', 'MAHALLE'], how='left')
+
+    search_df['ASSEMBLY_AREA_COUNT'] = np.where(
+        (search_df['ASSEMBLY_AREA_COUNT'] == 0) & (search_df['ALAN_M2'] > 0),
+        1,
+        search_df['ASSEMBLY_AREA_COUNT']
+    )
 
     if 'AFAD_MAHALLE' in birlesik_veri.columns:
         search_df['TOPLANMA_ALANI_ISMI'] = birlesik_veri['AFAD_MAHALLE']
@@ -900,12 +931,18 @@ else:
         padding: 15px;
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        width: 320px;
+        width: 340px;
         font-family: Arial, sans-serif;
       }}
       #custom-search-input {{
         width: 100%; padding: 8px; box-sizing: border-box;
         border: 1px solid #ccc; border-radius: 4px; font-size: 14px;
+        margin-bottom: 5px;
+      }}
+      #map-color-metric {{
+        width: 100%; padding: 6px; box-sizing: border-box;
+        border: 1px solid #007bff; border-radius: 4px; font-size: 13px;
+        margin-bottom: 10px; background-color: #f8f9fa; cursor: pointer;
       }}
       #custom-suggestions {{
         list-style: none; padding: 0; margin: 0;
@@ -927,7 +964,13 @@ else:
     </style>
 
     <div id="custom-search-box">
-      <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; color: #333;">Neighborhood Risk Interrogation</h4>
+      <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; color: #333;">Neighborhood Risk Panel</h4>
+      <select id="map-color-metric">
+        <option value="safety">Color by: Area Safety (1.5 m² per capita)</option>
+        <option value="ndvi">Color by: Green Cover (NDVI)</option>
+        <option value="ndbi">Color by: Built-up Index (NDBI)</option>
+        <option value="lst">Color by: Surface Temp (LST °C)</option>
+      </select>
       <input type="text" id="custom-search-input" placeholder="Search a Neighbourhood">
       <ul id="custom-suggestions"></ul>
       <div id="custom-info-panel"></div>
@@ -936,10 +979,20 @@ else:
     <script>
       var neighborhoodData = {json_data};
       var mahalleGeoJsonData = {mahalleler_json_str}; 
+      var currentMetric = 'safety';
+      var neighborhoodLayerGroup = null;
 
       var inputField = document.getElementById('custom-search-input');
       var suggBox = document.getElementById('custom-suggestions');
       var infoPanel = document.getElementById('custom-info-panel');
+      var metricSelect = document.getElementById('map-color-metric');
+
+      metricSelect.addEventListener('change', function(e) {{
+          currentMetric = e.target.value;
+          if (neighborhoodLayerGroup) {{
+              neighborhoodLayerGroup.setStyle(getStyle);
+          }}
+      }});
 
       inputField.addEventListener('input', function() {{
           var val = this.value.toUpperCase();
@@ -971,13 +1024,22 @@ else:
               statusHtml = "<span style='color:gray; font-weight:bold;'>Data Not Available</span>";
           }}
 
+          var lstVal = (d.LST_C !== null && d.LST_C !== undefined) ? d.LST_C.toFixed(2) + " °C" : "<span style='color:gray'>No Data</span>";
+          var ndviVal = (d.NDVI !== null && d.NDVI !== undefined) ? d.NDVI.toFixed(3) : "<span style='color:gray'>No Data</span>";
+          var ndbiVal = (d.NDBI !== null && d.NDBI !== undefined) ? d.NDBI.toFixed(3) : "<span style='color:gray'>No Data</span>";
+
           var html = "<b>District:</b> " + d.ILCE + "<br/>";
           html += "<b>Neighbourhood:</b> " + d.MAHALLE + "<br/>";
           html += "<b>Population:</b> " + (d.NUFUS ? d.NUFUS.toLocaleString('en-US') + " people" : "N/A") + "<br/>";
           html += "<b>Area as m²:</b> " + (d.ALAN_M2 ? d.ALAN_M2.toLocaleString('en-US') : "N/A") + " m²<br/>";
           html += "<b>Area per Person:</b> " + (d.KISI_BASI_M2 ? d.KISI_BASI_M2 : "N/A") + " m²<br/>";
           html += "<b>Total Assembly Areas:</b> " + (d.ASSEMBLY_AREA_COUNT || 0) + "<br/>";
-          html += "<b>Status:</b> " + statusHtml + "<br/>";
+          html += "<b>Status:</b> " + statusHtml + "<br/><hr style='margin:8px 0;'>";
+
+          html += "<div style='font-size: 13px;'>";
+          html += "<b>LST (Surface Temp):</b> " + lstVal + "<br/>";
+          html += "<b>NDVI (Green Cover):</b> " + ndviVal + "<br/>";
+          html += "<b>NDBI (Built-up):</b> " + ndbiVal + "</div>";
 
           html += "<table class='table-area'><tr><th>Registered Assembly Area Match</th></tr>";
           html += "<tr><td>" + (d.TOPLANMA_ALANI_ISMI || "Not Known") + "</td></tr></table>";
@@ -986,6 +1048,31 @@ else:
           infoPanel.style.display = 'block';
       }}
 
+      function getColor(props) {{
+          if (currentMetric === 'safety') {{
+              if (props.KISI_BASI_M2 == null) return '#808080';
+              return props.KISI_BASI_M2 >= 1.5 ? '#2ca02c' : '#d62728';
+          }} else if (currentMetric === 'ndvi') {{
+              if (props.NDVI == null) return '#808080';
+              return props.NDVI > 0.4 ? '#2ca02c' : (props.NDVI > 0.2 ? '#ff7f0e' : '#d62728');
+          }} else if (currentMetric === 'ndbi') {{
+              if (props.NDBI == null) return '#808080';
+              return props.NDBI < 0 ? '#2ca02c' : (props.NDBI < 0.15 ? '#ff7f0e' : '#d62728');
+          }} else if (currentMetric === 'lst') {{
+              if (props.LST_C == null) return '#808080';
+              return props.LST_C < 35 ? '#2ca02c' : (props.LST_C < 38 ? '#ff7f0e' : '#d62728');
+          }}
+          return '#808080';
+      }}
+
+      function getStyle(feature) {{
+          return {{
+              color: '#ffffff',
+              weight: 1.5,
+              fillColor: getColor(feature.properties),
+              fillOpacity: 0.65
+          }};
+      }}
 
       window.addEventListener('load', function() {{
           var mapObj = null;
@@ -998,12 +1085,10 @@ else:
           }}
 
           if (!mapObj) {{
-              console.error("[ERROR] Leaflet harita objesi bulunamadı!");
+              console.error("[ERROR] Leaflet harita object could not found!");
               return;
           }}
           console.log("[SUCCESS]");
-
-          var neighborhoodLayerGroup = null;
 
           mapObj.eachLayer(function(layer) {{
               if (layer.feature && layer.feature.properties && layer.feature.properties.ILCE) {{
@@ -1023,19 +1108,7 @@ else:
                               if (!feature.properties || !feature.properties.ILCE) return false;
                               return feature.properties.ILCE.toString().trim().toUpperCase() === clickedIlce.toUpperCase();
                           }},
-                          style: function(feature) {{
-                              var kisiBasi = feature.properties.KISI_BASI_M2;
-                              var fillColor = '#808080';
-                              if (kisiBasi !== null && kisiBasi !== undefined && !isNaN(kisiBasi)) {{
-                                  fillColor = kisiBasi >= 1.5 ? '#2ca02c' : '#d62728'; 
-                              }}
-                              return {{
-                                  color: '#ffffff',
-                                  weight: 1.5,
-                                  fillColor: fillColor,
-                                  fillOpacity: 0.65
-                              }};
-                          }},
+                          style: getStyle,
                           onEachFeature: function(feature, subLayer) {{
                               var props = feature.properties;
                               var isSafe = props.KISI_BASI_M2 >= 1.5;
@@ -1045,6 +1118,10 @@ else:
                                   statusHtml = isSafe ? "<span class='status-safe'>✔ Safe</span>" : "<span class='status-risk'>✖ Not Safe</span>";
                               }}
 
+                              var lstVal = (props.LST_C != null) ? props.LST_C.toFixed(2) + " °C" : "No Data";
+                              var ndviVal = (props.NDVI != null) ? props.NDVI.toFixed(3) : "No Data";
+                              var ndbiVal = (props.NDBI != null) ? props.NDBI.toFixed(3) : "No Data";
+
                               var tooltipHtml = "<div style='font-size: 13px; line-height: 1.5;'>";
                               tooltipHtml += "<b>Neighbourhood:</b> " + props.MAHALLE + "<br/>";
                               tooltipHtml += "<b>District:</b> " + props.ILCE + "<br/>";
@@ -1052,7 +1129,8 @@ else:
                               if (props.ALAN_M2) tooltipHtml += "<b>Area:</b> " + props.ALAN_M2.toLocaleString('en-US') + " m²<br/>";
                               if (props.KISI_BASI_M2) tooltipHtml += "<b>Area per Person:</b> " + props.KISI_BASI_M2 + " m²<br/>";
                               tooltipHtml += "<b>Total Assembly Areas:</b> " + (props.ASSEMBLY_AREA_COUNT || 0) + "<br/>";
-                              tooltipHtml += "<b>Status:</b> " + statusHtml + "</div>";
+                              tooltipHtml += "<b>Status:</b> " + statusHtml + "<hr style='margin:5px 0;'>";
+                              tooltipHtml += "<b>LST:</b> " + lstVal + " | <b>NDVI:</b> " + ndviVal + " | <b>NDBI:</b> " + ndbiVal + "</div>";
 
                               subLayer.bindTooltip(tooltipHtml, {{sticky: true}}); 
                               subLayer.on('click', function(evt) {{
@@ -1064,7 +1142,10 @@ else:
                                       ALAN_M2: props.ALAN_M2,
                                       KISI_BASI_M2: props.KISI_BASI_M2,
                                       TOPLANMA_ALANI_ISMI: props.TOPLANMA_ALANI_ISMI,
-                                      ASSEMBLY_AREA_COUNT: props.ASSEMBLY_AREA_COUNT
+                                      ASSEMBLY_AREA_COUNT: props.ASSEMBLY_AREA_COUNT,
+                                      LST_C: props.LST_C,
+                                      NDVI: props.NDVI,
+                                      NDBI: props.NDBI
                                   }};
                                   inputField.value = props.MAHALLE;
                                   suggBox.innerHTML = '';
@@ -1089,4 +1170,3 @@ else:
 
     print(f"[SUCCESS] Interactive HTML Map with Search Engine saved to '{save_path}'")
     print(f"[INFO] Right click -> Open In -> Explorer")
-# ==================================================
