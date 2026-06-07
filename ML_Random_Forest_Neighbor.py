@@ -38,20 +38,22 @@ def _normalize_mahalle(s: str) -> str:
 
 class RandomForestNeighborModel:
     """
-    Random Forest classifier extended with neighbor assembly context features:
-      - neighbor_assembly_m2    (total assembly area within 500 m buffer)
-      - neighbor_assembly_count (number of assembly areas within 500 m buffer)
+    Random Forest classifier extended with spatial assembly context features:
+      - neighbor_assembly_m2    / neighbor_assembly_count  (500 m buffer)
+      - regional_assembly_m2    / regional_assembly_count  (3 km buffer)
 
     Uses the same 70/30 train/test split produced by Data_Splitter.py.
     """
 
     OUTPUT_DIR = "ML_RF_Neighbor_Charts"
     NEIGHBOR_CSV = "izmir_mahalle_neighbor_assembly.csv"
+    REGIONAL_CSV = "izmir_mahalle_regional_assembly.csv"
     TRAIN_CSV = "output/Train_Dataset.csv"
     TEST_CSV = "output/Test_Dataset.csv"
 
     BASE_FEATURES = ['ILCE_encoded', 'NUFUS', 'LST_C', 'NDVI', 'NDBI']
     NEIGHBOR_FEATURES = ['neighbor_assembly_m2', 'neighbor_assembly_count']
+    REGIONAL_FEATURES = ['regional_assembly_m2', 'regional_assembly_count']
     TARGET = 'AREA_CATEGORY'
 
     FEATURE_LABELS = {
@@ -60,8 +62,10 @@ class RandomForestNeighborModel:
         'LST_C': 'LST_C',
         'NDVI': 'NDVI',
         'NDBI': 'NDBI',
-        'neighbor_assembly_m2': 'Neighbor Assembly m²',
-        'neighbor_assembly_count': 'Neighbor Assembly Count',
+        'neighbor_assembly_m2': 'Neighbor Assembly m² (500m)',
+        'neighbor_assembly_count': 'Neighbor Assembly Count (500m)',
+        'regional_assembly_m2': 'Regional Assembly m² (3km)',
+        'regional_assembly_count': 'Regional Assembly Count (3km)',
     }
 
     def __init__(self):
@@ -81,22 +85,23 @@ class RandomForestNeighborModel:
         self.y_train = None
         self.y_test = None
         self.y_pred = None
-        self.all_features = self.BASE_FEATURES + self.NEIGHBOR_FEATURES
+        self.all_features = self.BASE_FEATURES + self.NEIGHBOR_FEATURES + self.REGIONAL_FEATURES
 
     # ------------------------------------------------------------------
     @staticmethod
-    def _prepare_neighbor_lookup(neighbor_df: pd.DataFrame) -> pd.DataFrame:
-        """Normalize both mahalle name and ilce to build a composite key lookup."""
-        nb = neighbor_df[['name', 'ilce_adi', 'neighbor_assembly_m2', 'neighbor_assembly_count']].copy()
+    def _prepare_lookup(source_df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
+        """Normalize mahalle name + ilce into composite join keys for any feature set."""
+        nb = source_df[['name', 'ilce_adi'] + feature_cols].copy()
         nb['_mkey'] = nb['name'].apply(_normalize_mahalle)
         nb['_mkey_ns'] = nb['_mkey'].str.replace(' ', '', regex=False)
         nb['_ikey'] = nb['ilce_adi'].apply(_normalize_mahalle)
-        # Composite key: ilce + mahalle (most specific)
         nb['_composite'] = nb['_ikey'] + '|' + nb['_mkey']
         nb['_composite_ns'] = nb['_ikey'] + '|' + nb['_mkey_ns']
         return nb
 
-    def _merge_neighbor_data(self, df: pd.DataFrame, neighbor_lookup: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def _merge_context(df: pd.DataFrame, lookup: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
+        """Three-pass fuzzy join: composite → no-space composite → name-only fallback."""
         df = df.copy()
         df['_mkey'] = df['MAHALLE'].apply(_normalize_mahalle)
         df['_mkey_ns'] = df['_mkey'].str.replace(' ', '', regex=False)
@@ -104,82 +109,79 @@ class RandomForestNeighborModel:
         df['_composite'] = df['_ikey'] + '|' + df['_mkey']
         df['_composite_ns'] = df['_ikey'] + '|' + df['_mkey_ns']
 
-        nb_cols = ['neighbor_assembly_m2', 'neighbor_assembly_count']
-        df['neighbor_assembly_m2'] = np.nan
-        df['neighbor_assembly_count'] = np.nan
+        for col in feature_cols:
+            df[col] = np.nan
 
         def _make_map(nb, key_col):
-            deduped = nb.groupby(key_col, as_index=False)[nb_cols].sum()
-            return deduped.set_index(key_col)
+            return nb.groupby(key_col, as_index=False)[feature_cols].sum().set_index(key_col)
 
-        # Pass 1: exact composite key (ilce + mahalle name)
-        p1_map = _make_map(neighbor_lookup, '_composite')
-        hits = df['_composite'].map(p1_map['neighbor_assembly_m2'])
-        matched_p1 = hits.notna()
-        df.loc[matched_p1, 'neighbor_assembly_m2'] = hits[matched_p1].values
-        df.loc[matched_p1, 'neighbor_assembly_count'] = df.loc[matched_p1, '_composite'].map(
-            p1_map['neighbor_assembly_count']).values
+        sentinel = feature_cols[0]
 
-        # Pass 2: no-space composite key (handles "YENIKOY" vs "Yeni Köy")
-        unmatched = df['neighbor_assembly_m2'].isna()
+        # Pass 1: exact composite key (ilce + mahalle)
+        p1 = _make_map(lookup, '_composite')
+        hits = df['_composite'].map(p1[sentinel])
+        m1 = hits.notna()
+        for col in feature_cols:
+            df.loc[m1, col] = df.loc[m1, '_composite'].map(p1[col]).values
+
+        # Pass 2: no-space composite (handles YENIKOY vs Yeni Köy)
+        unmatched = df[sentinel].isna()
         if unmatched.any():
-            p2_map = _make_map(neighbor_lookup, '_composite_ns')
-            hits2 = df.loc[unmatched, '_composite_ns'].map(p2_map['neighbor_assembly_m2'])
-            matched_p2 = hits2.notna()
-            df.loc[matched_p2[matched_p2].index, 'neighbor_assembly_m2'] = hits2[matched_p2].values
-            df.loc[matched_p2[matched_p2].index, 'neighbor_assembly_count'] = (
-                df.loc[matched_p2[matched_p2].index, '_composite_ns']
-                .map(p2_map['neighbor_assembly_count']).values)
+            p2 = _make_map(lookup, '_composite_ns')
+            hits2 = df.loc[unmatched, '_composite_ns'].map(p2[sentinel])
+            m2 = hits2.notna()
+            for col in feature_cols:
+                df.loc[m2[m2].index, col] = (
+                    df.loc[m2[m2].index, '_composite_ns'].map(p2[col]).values)
 
-        # Pass 3: mahalle name only (no-space) — fallback without ilce
-        unmatched = df['neighbor_assembly_m2'].isna()
+        # Pass 3: mahalle name only (no-space) — district-agnostic fallback
+        unmatched = df[sentinel].isna()
         if unmatched.any():
-            p3_map = _make_map(neighbor_lookup, '_mkey_ns')
-            hits3 = df.loc[unmatched, '_mkey_ns'].map(p3_map['neighbor_assembly_m2'])
-            matched_p3 = hits3.notna()
-            df.loc[matched_p3[matched_p3].index, 'neighbor_assembly_m2'] = hits3[matched_p3].values
-            df.loc[matched_p3[matched_p3].index, 'neighbor_assembly_count'] = (
-                df.loc[matched_p3[matched_p3].index, '_mkey_ns']
-                .map(p3_map['neighbor_assembly_count']).values)
+            p3 = _make_map(lookup, '_mkey_ns')
+            hits3 = df.loc[unmatched, '_mkey_ns'].map(p3[sentinel])
+            m3 = hits3.notna()
+            for col in feature_cols:
+                df.loc[m3[m3].index, col] = (
+                    df.loc[m3[m3].index, '_mkey_ns'].map(p3[col]).values)
 
         df = df.drop(columns=['_mkey', '_mkey_ns', '_ikey', '_composite', '_composite_ns'])
-        df['neighbor_assembly_m2'] = df['neighbor_assembly_m2'].fillna(0.0)
-        df['neighbor_assembly_count'] = df['neighbor_assembly_count'].fillna(0.0)
+        for col in feature_cols:
+            df[col] = df[col].fillna(0.0)
         return df
 
     # ------------------------------------------------------------------
+    def _report_match_rate(self, lookup: pd.DataFrame, label: str) -> None:
+        all_df = pd.concat([self.train_df, self.test_df])
+        all_df['_mkey_ns'] = all_df['MAHALLE'].apply(_normalize_mahalle).str.replace(' ', '', regex=False)
+        all_df['_ikey'] = all_df['ILCE'].apply(_normalize_mahalle)
+        all_df['_composite'] = all_df['_ikey'] + '|' + all_df['MAHALLE'].apply(_normalize_mahalle)
+        all_df['_composite_ns'] = all_df['_ikey'] + '|' + all_df['_mkey_ns']
+        found = (
+            all_df['_composite'].isin(set(lookup['_composite']))
+            | all_df['_composite_ns'].isin(set(lookup['_composite_ns']))
+            | all_df['_mkey_ns'].isin(set(lookup['_mkey_ns']))
+        )
+        total = len(all_df)
+        print(f"{label} join: {found.sum()}/{total} rows matched ({found.mean():.1%})")
+
     def load_data(self):
         self.train_df = pd.read_csv(self.TRAIN_CSV)
         self.test_df = pd.read_csv(self.TEST_CSV)
+
         neighbor_df = pd.read_csv(self.NEIGHBOR_CSV)
+        regional_df = pd.read_csv(self.REGIONAL_CSV)
 
-        neighbor_lookup = self._prepare_neighbor_lookup(neighbor_df)
+        nb_lookup = self._prepare_lookup(neighbor_df, self.NEIGHBOR_FEATURES)
+        rg_lookup = self._prepare_lookup(regional_df, self.REGIONAL_FEATURES)
 
-        # Track join hits before merge (NaN = not found in lookup)
-        self.train_df = self._merge_neighbor_data(self.train_df, neighbor_lookup)
-        self.test_df = self._merge_neighbor_data(self.test_df, neighbor_lookup)
+        self._report_match_rate(nb_lookup, "Neighbor (500m)")
+        self._report_match_rate(rg_lookup, "Regional (3km)")
 
-        total = len(self.train_df) + len(self.test_df)
-        # A row was "found" if neighbor_assembly_m2 came from the CSV (could be 0 legitimately)
-        # We track this via a sentinel: unmatched rows are filled with NaN then 0 AFTER we report
-        # Instead, re-derive: check the lookup keys directly
-        nb_keys_composite = set(neighbor_lookup['_composite'].tolist())
-        nb_keys_composite_ns = set(neighbor_lookup['_composite_ns'].tolist())
-        nb_keys_ns = set(neighbor_lookup['_mkey_ns'].tolist())
-
-        all_df = pd.concat([self.train_df, self.test_df])
-        all_df['_mkey'] = all_df['MAHALLE'].apply(_normalize_mahalle)
-        all_df['_mkey_ns'] = all_df['_mkey'].str.replace(' ', '', regex=False)
-        all_df['_ikey'] = all_df['ILCE'].apply(_normalize_mahalle)
-        all_df['_composite'] = all_df['_ikey'] + '|' + all_df['_mkey']
-        all_df['_composite_ns'] = all_df['_ikey'] + '|' + all_df['_mkey_ns']
-
-        found = (
-            all_df['_composite'].isin(nb_keys_composite)
-            | all_df['_composite_ns'].isin(nb_keys_composite_ns)
-            | all_df['_mkey_ns'].isin(nb_keys_ns)
-        )
-        print(f"Neighbor join: {found.sum()}/{total} rows matched ({found.mean():.1%})")
+        for split in ('train_df', 'test_df'):
+            df = getattr(self, split)
+            df = self._merge_context(df, nb_lookup, self.NEIGHBOR_FEATURES)
+            df = self._merge_context(df, rg_lookup, self.REGIONAL_FEATURES)
+            setattr(self, split, df)
 
         all_ilce = pd.concat([self.train_df['ILCE'], self.test_df['ILCE']])
         self.le_ilce.fit(all_ilce)
@@ -192,7 +194,7 @@ class RandomForestNeighborModel:
         self.y_test = self.test_df[self.TARGET]
 
         print(f"Total neighborhoods: {len(self.train_df) + len(self.test_df)}")
-        print(f"Features: {', '.join(self.all_features)}")
+        print(f"Features ({len(self.all_features)}): {', '.join(self.all_features)}")
         print(f"Train: {len(self.X_train)} | Test: {len(self.X_test)}")
 
     # ------------------------------------------------------------------
@@ -206,7 +208,7 @@ class RandomForestNeighborModel:
         accuracy = accuracy_score(self.y_test, self.y_pred)
         report = classification_report(self.y_test, self.y_pred)
 
-        print("\n             MODEL PERFORMANCE REPORT (+ Neighbor Features)             ")
+        print("\n       MODEL PERFORMANCE REPORT (+ Neighbor 500m & Regional 3km)       ")
         print("=========================================================================")
         print(f"Overall Accuracy : {accuracy:.2%}")
         print("=========================================================================\n")
@@ -221,7 +223,7 @@ class RandomForestNeighborModel:
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                     xticklabels=self.model.classes_,
                     yticklabels=self.model.classes_)
-        plt.title('RF + Neighbor Context: Confusion Matrix', fontsize=15, fontweight='bold', pad=15)
+        plt.title('RF + Neighbor & Regional Context: Confusion Matrix', fontsize=15, fontweight='bold', pad=15)
         plt.xlabel('Predicted Category', fontsize=12, fontweight='bold')
         plt.ylabel('Actual Category', fontsize=12, fontweight='bold')
         plt.xticks(rotation=45, ha='right')
@@ -255,7 +257,7 @@ class RandomForestNeighborModel:
                      f'{width:.1f}%', ha='left', va='center', fontsize=10)
 
         plt.xlim(0, max(importances) * 1.2)
-        plt.title('RF + Neighbor Context: Feature Importance', fontsize=14, fontweight='bold')
+        plt.title('RF + Neighbor & Regional Context: Feature Importance', fontsize=14, fontweight='bold')
         plt.xlabel('Impact Weight on Model Decisions (%)', fontsize=12, fontweight='bold')
         plt.ylabel('Features', fontsize=12, fontweight='bold')
         plt.tight_layout()
@@ -330,7 +332,7 @@ class RandomForestNeighborModel:
                 tbl[(avg_row, j)].set_text_props(fontweight='bold')
 
         ax_table.set_title(
-            'RF + Neighbor Context: Per-Class Performance',
+            'RF + Neighbor & Regional Context: Per-Class Performance',
             fontsize=12, fontweight='bold', pad=10
         )
 
